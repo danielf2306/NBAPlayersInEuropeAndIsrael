@@ -57,6 +57,21 @@ npm test           # בדיקות לוגיקה
    - **אייפון:** ב-Safari לוחצים על כפתור השיתוף ובוחרים "הוסף למסך הבית".
    - **אנדרואיד:** ב-Chrome פותחים את התפריט ובוחרים "התקנת אפליקציה".
 
+### אפליקציית אנדרואיד (APK)
+
+האפליקציה נארזת כ-APK בעזרת [Capacitor](https://capacitorjs.com).
+- **הורדה:** [nba-draft-europe.apk](https://github.com/danielf2306/NBAPlayersInEuropeAndIsrael/releases/latest/download/nba-draft-europe.apk), הגרסה האחרונה בעמוד ה-Releases.
+  - מורידים את הקובץ בטלפון, פותחים אותו ומאשרים "התקנה ממקורות לא ידועים".
+- **בנייה אוטומטית:** ה-workflow `.github/workflows/android.yml` בונה APK חתום.
+  - בכל PR ה-APK נשמר כ-artifact.
+  - בכל מיזוג ל-`main` נוצר Release חדש.
+- **עדכונים:** כל גרסה חתומה באותו מפתח (`android/app/sideload.keystore`), ולכן מתקינים גרסה חדשה מעל הקיימת והנתונים נשמרים.
+  - זה מפתח להתקנה ידנית בלבד, לא ל-Google Play.
+  - אפשר להחליף אותו במפתח פרטי דרך משתני הסביבה `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` ו-`ANDROID_KEY_PASSWORD`.
+- **נתונים:** הסרת האפליקציה מוחקת את הנתונים שנשמרו בה. כדאי להפעיל סנכרון או לייצא גיבוי. באפליקציה, יצוא קבצים נפתח בחלון השיתוף של אנדרואיד (Drive, WhatsApp, קבצים).
+- **בנייה מקומית:** צריך JDK 21 ו-Android SDK. מריצים `npm ci` ואז `npm run android:apk`. ה-APK נוצר ב-`android/app/build/outputs/apk/release/`.
+- **אייקונים ומסך פתיחה:** נוצרים מחדש עם `node tools/android-assets.mjs`.
+
 ## נתונים
 
 | קובץ | מקור |
@@ -80,5 +95,8 @@ js/store.js       מצב ושמירה מקומית
 js/sync.js        סנכרון Gist
 js/teams.js       השלמה אוטומטית לקבוצות
 sw.js             עבודה בלי אינטרנט. לאחר שינוי בקבצים יש להעלות את VERSION
+js/native.js      שילוב עם אפליקציית האנדרואיד (שיתוף קבצים, סרגלי מערכת)
+android/          פרויקט האנדרואיד (Capacitor)
+tools/build-web.mjs  מעתיק את האתר ל-www/ לצורך בניית ה-APK
 tools/build_drafts.py
 ```

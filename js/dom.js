@@ -1,3 +1,5 @@
+import { isNative, shareFile } from './native.js';
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
@@ -37,7 +39,8 @@ export function dialog(html, { onOpen } = {}) {
   });
 }
 
-export function download(filename, text, type = 'application/json') {
+export async function download(filename, text, type = 'application/json') {
+  if (isNative()) return shareFile(filename, text); // the Android WebView can't download blobs
   const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
