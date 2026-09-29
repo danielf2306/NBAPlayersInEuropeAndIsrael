@@ -9,7 +9,7 @@ import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUN
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
   computePath, effectivePath, cameToIsrael, isChecked, playedNba, pathFlags, draftStats,
-  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase,
+  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase, stintSeasons,
 } from './model.js';
 
 const app = document.getElementById('app');
@@ -313,9 +313,9 @@ async function editDraftDialog(d) {
   route();
 }
 
-function seasonSelect(name, value, { placeholder = '—', endYear = false } = {}) {
+function seasonSelect(name, value, { placeholder = '—', endYear = false, min = null } = {}) {
   // endYear: option value is the season's end year (used for nbaFrom/nbaTo)
-  const opts = seasonOptions(1946).map((y) => {
+  const opts = seasonOptions(min ?? 1946).map((y) => {
     const v = endYear ? y + 1 : y;
     return `<option value="${v}" ${String(value) === String(v) ? 'selected' : ''}>${seasonLabel(y)}</option>`;
   });
@@ -564,6 +564,7 @@ function viewPlayer(id) {
     <h2>קבוצות באירופה 🇪🇺</h2>
     <div class="stints" id="eu-stints"></div>
     <button class="btn" id="add-eu" type="button">+ הוספת קבוצה באירופה</button>
+    <p class="hint">עונה אחת: בוחרים רק ״מעונה״. כמה עונות ברצף באותה קבוצה: בוחרים גם ״עד עונה״.</p>
   </section>
 
   <section class="card il-card">
@@ -576,6 +577,7 @@ function viewPlayer(id) {
     <div id="il-block">
       <div class="stints" id="il-stints"></div>
       <button class="btn" id="add-il" type="button">+ הוספת קבוצה בישראל</button>
+      <p class="hint">עונה אחת: בוחרים רק ״מעונה״. כמה עונות ברצף: בוחרים גם ״עד עונה״.</p>
     </div>
   </section>
 
@@ -598,7 +600,7 @@ function viewPlayer(id) {
     parts.push(playedNba(p)
       ? `שיחק ב-NBA ${nbaSeasons(p)} (${fmt(p.nbaGames)} משחקים${gaps.length ? `, ללא ${gaps.length === 1 ? 'עונת' : 'העונות'} ${gaps.map(seasonLabel).join(', ')}` : ''}).`
       : 'לא שיחק ב-NBA.');
-    const describe = (s) => `${s.season != null && s.season !== '' ? `בעונת ${seasonLabel(s.season)} ` : ''}ל${s.team || 'קבוצה לא ידועה'}${s.country ? ` (${s.country})` : ''}`;
+    const describe = (s) => `${s.season != null && s.season !== '' ? `${s.until > s.season ? 'בעונות' : 'בעונת'} \u2066${stintSeasons(s)}\u2069 ` : ''}ל${s.team || 'קבוצה לא ידועה'}${s.country ? ` (${s.country})` : ''}`;
     const byPhase = (ph) => sortStints(work.stints.filter((s) => stintPhase(p, s) === ph))[0];
     const [before, middle, after] = ['before', 'middle', 'after'].map(byPhase);
     if (before) parts.push(`לפני ה-NBA שיחק באירופה: ${describe(before)}.`);
@@ -608,7 +610,7 @@ function viewPlayer(id) {
     if (!before && !middle && !after && first) parts.push(`קבוצה ראשונה באירופה: ${describe(first)}.`);
     if (cameToIsrael(work)) {
       const il = sortStints(israelStints(work));
-      parts.push(il.length ? `בישראל: ${il.map((s) => `${s.team || '?'}${s.season != null && s.season !== '' ? ` (${seasonLabel(s.season)})` : ''}`).join(', ')}.` : 'הגיע לישראל.');
+      parts.push(il.length ? `בישראל: ${il.map((s) => `${s.team || '?'}${s.season != null && s.season !== '' ? ` (\u2066${stintSeasons(s)}\u2069)` : ''}`).join(', ')}.` : 'הגיע לישראל.');
     }
     const label = path ? `<strong>${esc(PATHS[path].label)}</strong>${!work.path && computed ? ' <span class="muted small">(חושב אוטומטית)</span>' : ''}` : '<strong>לא נקבע עדיין</strong>';
     $('#summary').innerHTML = `${label}<br>${esc(parts.join(' '))}`;
@@ -625,24 +627,36 @@ function viewPlayer(id) {
       container.innerHTML = `<p class="muted small">${kind === 'il' ? 'לא הוזנו קבוצות בישראל' : 'לא הוזנו קבוצות באירופה'}</p>`;
       return;
     }
+    const untilSelect = (s) => seasonSelect('until', s.until, { placeholder: 'עונה אחת בלבד', min: s.season != null && s.season !== '' ? Number(s.season) + 1 : null });
     container.innerHTML = list.map((s, i) => `
       <div class="stint" data-i="${i}">
-        <label class="field season">עונה${seasonSelect('season', s.season, { placeholder: 'בחר עונה' })}</label>
-        <label class="field">קבוצה<input name="team" value="${esc(s.team)}" placeholder="${kind === 'il' ? 'התחל להקליד, למשל: הפועל…' : 'Start typing, e.g. Real…'}" dir="auto"></label>
-        <button class="btn icon danger" type="button" data-remove aria-label="הסרה">✕</button>
-        <div class="extra">
-          ${kind === 'il'
-            ? `<label class="field">ליגה<select name="league"><option value="">—</option>${Object.entries(ISRAEL_LEAGUES).map(([k, l]) => `<option value="${k}" ${s.league === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`
-            : `<label class="field">מדינה<input name="country" value="${esc(s.country)}" dir="auto"></label>`}
-          <label class="field">עד עונה${seasonSelect('until', s.until, { placeholder: 'עונה אחת' })}</label>
+        <div class="range">
+          <label class="field">מעונה${seasonSelect('season', s.season, { placeholder: 'בחר עונה' })}</label>
+          <span class="dash" aria-hidden="true">–</span>
+          <label class="field">עד עונה${untilSelect(s)}</label>
         </div>
+        <label class="field">קבוצה<input name="team" value="${esc(s.team)}" placeholder="${kind === 'il' ? 'התחל להקליד, למשל: הפועל…' : 'Start typing, e.g. Real…'}" dir="auto"></label>
+        ${kind === 'il'
+          ? `<label class="field">ליגה<select name="league"><option value="">—</option>${Object.entries(ISRAEL_LEAGUES).map(([k, l]) => `<option value="${k}" ${s.league === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`
+          : `<label class="field">מדינה<input name="country" value="${esc(s.country)}" dir="auto"></label>`}
+        <button class="btn small danger remove" type="button" data-remove>✕ הסרה</button>
       </div>`).join('');
     $$('.stint', container).forEach((row) => {
       const s = list[Number(row.dataset.i)];
       const sel = row.querySelector('[name=season]');
-      sel.onchange = () => { s.season = sel.value === '' ? null : Number(sel.value); save(); };
-      const until = row.querySelector('[name=until]');
-      until.onchange = () => { s.until = until.value === '' ? null : Number(until.value); save(); };
+      const bindUntil = () => {
+        const until = row.querySelector('[name=until]');
+        until.onchange = () => { s.until = until.value === '' ? null : Number(until.value); save(); };
+      };
+      sel.onchange = () => {
+        s.season = sel.value === '' ? null : Number(sel.value);
+        // An end season before the start makes no sense: drop it and offer only later seasons.
+        if (s.until != null && (s.season == null || s.until <= s.season)) s.until = null;
+        row.querySelector('[name=until]').outerHTML = untilSelect(s);
+        bindUntil();
+        save();
+      };
+      bindUntil();
       const team = row.querySelector('[name=team]');
       team.oninput = () => { s.team = team.value.trim(); save(); };
       autocomplete(team, {
@@ -858,7 +872,7 @@ function viewIsrael() {
   ${teamsSorted.length ? `<div class="grid-2 israel-list">${teamsSorted.map(([team, list]) => {
     const info = teams.findIsraeli(team);
     return `<section class="card"><h3><span>${esc(team)}</span><span class="muted small">${info ? esc(ISRAEL_LEAGUES[info.league] || 'היסטורית') + ' · ' : ''}${list.length}</span></h3>
-      <ul>${list.sort((x, y) => (x.s.season ?? 9999) - (y.s.season ?? 9999)).map(({ p, s }) => `<li>${teamChip(p.team)}<a class="ltr" style="font-weight:700" href="#/player/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="muted small">— ${s.season != null && s.season !== '' ? seasonLabel(s.season) + (s.until ? `–${seasonLabel(s.until)}` : '') + ' · ' : ''}${s.league ? ISRAEL_LEAGUES[s.league] + ' · ' : ''}דראפט ${p.year}${p.pick ? ` #${p.pick}` : ''}</span></li>`).join('')}</ul></section>`;
+      <ul>${list.sort((x, y) => (x.s.season ?? 9999) - (y.s.season ?? 9999)).map(({ p, s }) => `<li>${teamChip(p.team)}<a class="ltr" style="font-weight:700" href="#/player/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="muted small">— ${stintSeasons(s) ? `\u2066${stintSeasons(s)}\u2069 · ` : ''}${s.league ? ISRAEL_LEAGUES[s.league] + ' · ' : ''}דראפט ${p.year}${p.pick ? ` #${p.pick}` : ''}</span></li>`).join('')}</ul></section>`;
   }).join('')}</div>` : `<div class="card">${empty('NO ROSTER YET', 'עוד לא סומנו שחקנים שהגיעו לישראל.<br>פתח שחקן מתוך דראפט וסמן ״הגיע לישראל״.')}</div>`}`;
 }
 
@@ -915,9 +929,9 @@ function csvExport() {
     lines.push([
       p.year, p.pick, p.round, p.name, p.team, p.college, p.nbaGames, nbaSeasons(p, { isolate: false }), path ? PATHS[path].label : '',
       first && first.season != null ? seasonLabel(first.season) : '', first?.team || '',
-      sortStints(europeStints(a)).map((s) => `${s.season != null && s.season !== '' ? seasonLabel(s.season) + ' ' : ''}${s.team} (${s.country})`).join('; '),
+      sortStints(europeStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team} (${s.country})`).join('; '),
       a?.israel === false ? 'לא' : cameToIsrael(a) ? 'כן' : '',
-      sortStints(israelStints(a)).map((s) => `${s.season != null && s.season !== '' ? seasonLabel(s.season) + ' ' : ''}${s.team}${s.league ? ` (${ISRAEL_LEAGUES[s.league]})` : ''}`).join('; '),
+      sortStints(israelStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team}${s.league ? ` (${ISRAEL_LEAGUES[s.league]})` : ''}`).join('; '),
       a?.notes || '',
     ].map(q).join(','));
   }

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computePath, effectivePath, cameToIsrael, isChecked, draftStats, mergeState,
-  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags,
+  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons,
 } from '../js/model.js';
 
 // nbaFrom/nbaTo are season end years; stint.season is a start year.
@@ -111,4 +111,12 @@ test('normalize handles accents, final letters and quotes', () => {
   assert.equal(normalize('Luka Dončić'), 'luka doncic');
   assert.equal(normalize('מכבי ראשל"צ'), normalize('מכבי ראשלצ'));
   assert.ok(normalize('הפועל ירושלים').includes('ירושלימ'));
+});
+
+test('stint season ranges', () => {
+  assert.equal(stintSeasons({ season: 1984 }), '1984/85');
+  assert.equal(stintSeasons({ season: 1984, until: 1986 }), '1984/85–1986/87');
+  assert.equal(stintSeasons({ season: 1984, until: 1984 }), '1984/85');
+  assert.equal(stintSeasons({ season: 1984, until: 1980 }), '1984/85');
+  assert.equal(stintSeasons({ team: 'X' }), '');
 });

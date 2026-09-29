@@ -44,6 +44,13 @@ export function seasonLabel(start) {
   return `${s}/${String((s + 1) % 100).padStart(2, '0')}`;
 }
 
+/** "1984/85" for one season, "1984/85–1986/87" for a range (stint.until is optional). */
+export function stintSeasons(s) {
+  if (s?.season == null || s.season === '') return '';
+  const until = s.until != null && s.until !== '' && Number(s.until) > Number(s.season) ? Number(s.until) : null;
+  return until ? `${seasonLabel(s.season)}–${seasonLabel(until)}` : seasonLabel(s.season);
+}
+
 export function seasonOptions(from = 1975, to = new Date().getFullYear() + 1) {
   const out = [];
   for (let y = to; y >= from; y--) out.push(y);
