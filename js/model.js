@@ -142,6 +142,23 @@ export function cameToIsrael(a) {
   return a?.israel === true;
 }
 
+/**
+ * 'yes' | 'no' | '' (not checked yet).
+ * Rule: once the NBA/Europe path is known (NBA only, or any European path) and no Israeli
+ * team was added nor "came to Israel" marked, the player counts as not having come to Israel.
+ * It stays derived, so adding an Israeli team later flips it to 'yes' on its own.
+ */
+export function israelStatus(p, a) {
+  if (cameToIsrael(a)) return 'yes';
+  if (a?.israel === false) return 'no';
+  return effectivePath(p, a) ? 'no' : '';
+}
+
+/** True when the Israel answer came from the rule above rather than from the user. */
+export function israelAuto(p, a) {
+  return israelStatus(p, a) === 'no' && a?.israel !== false;
+}
+
 /** True when the user has looked at this player (any decision recorded). */
 export function isChecked(p, a) {
   return Boolean(effectivePath(p, a)) || a?.israel === false || a?.israel === true;

@@ -9,7 +9,7 @@ import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUN
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
   computePath, effectivePath, cameToIsrael, isChecked, playedNba, pathFlags, draftStats,
-  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase, stintSeasons,
+  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase, stintSeasons, israelStatus, israelAuto,
 } from './model.js';
 
 const app = document.getElementById('app');
@@ -574,6 +574,7 @@ function viewPlayer(id) {
       <button type="button" data-il="no">לא הגיע לישראל</button>
       <button type="button" data-il="yes">הגיע לישראל</button>
     </div>
+    <p class="hint" id="il-auto" hidden>סומן אוטומטית: המסלול נקבע ולא הוזנה קבוצה ישראלית. אם הוא כן שיחק בישראל — לחץ ״הגיע לישראל״ והוסף קבוצה.</p>
     <div id="il-block">
       <div class="stints" id="il-stints"></div>
       <button class="btn" id="add-il" type="button">+ הוספת קבוצה בישראל</button>
@@ -616,8 +617,9 @@ function viewPlayer(id) {
     $('#summary').innerHTML = `${label}<br>${esc(parts.join(' '))}`;
     $('#timeline').innerHTML = timeline(p, work);
     $$('#path button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.path === (work.path || ''))));
-    const ilState = work.israel === true || israelStints(work).length ? 'yes' : work.israel === false ? 'no' : '';
+    const ilState = israelStatus(p, work);
     $$('#il button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.il === ilState)));
+    $('#il-auto').hidden = !israelAuto(p, work);
     $('#il-block').classList.toggle('hidden', ilState !== 'yes');
   }
 
@@ -930,7 +932,7 @@ function csvExport() {
       p.year, p.pick, p.round, p.name, p.team, p.college, p.nbaGames, nbaSeasons(p, { isolate: false }), path ? PATHS[path].label : '',
       first && first.season != null ? seasonLabel(first.season) : '', first?.team || '',
       sortStints(europeStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team} (${s.country})`).join('; '),
-      a?.israel === false ? 'לא' : cameToIsrael(a) ? 'כן' : '',
+      { yes: 'כן', no: 'לא', '': '' }[israelStatus(p, a)],
       sortStints(israelStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team}${s.league ? ` (${ISRAEL_LEAGUES[s.league]})` : ''}`).join('; '),
       a?.notes || '',
     ].map(q).join(','));

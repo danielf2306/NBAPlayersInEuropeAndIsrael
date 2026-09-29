@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computePath, effectivePath, cameToIsrael, isChecked, draftStats, mergeState,
-  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons,
+  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons, israelStatus, israelAuto,
 } from '../js/model.js';
 
 // nbaFrom/nbaTo are season end years; stint.season is a start year.
@@ -119,4 +119,21 @@ test('stint season ranges', () => {
   assert.equal(stintSeasons({ season: 1984, until: 1984 }), '1984/85');
   assert.equal(stintSeasons({ season: 1984, until: 1980 }), '1984/85');
   assert.equal(stintSeasons({ team: 'X' }), '');
+});
+
+test('israel status: path set without an Israeli team means "did not come"', () => {
+  assert.equal(israelStatus(dirk, null), '');
+  assert.equal(israelStatus(dirk, { stints: [] }), '');
+  const nbaOnly = { path: 'nba_only', stints: [] };
+  assert.equal(israelStatus(dirk, nbaOnly), 'no');
+  assert.equal(israelAuto(dirk, nbaOnly), true);
+  const europe = { stints: [{ season: 2019, team: 'Real Madrid', country: 'ספרד' }] };
+  assert.equal(israelStatus(dirk, europe), 'no');
+  // an Israeli team (or an explicit yes) wins
+  assert.equal(israelStatus(dirk, { stints: [...europe.stints, { season: 2020, team: 'מכבי תל אביב', country: ISRAEL }] }), 'yes');
+  assert.equal(israelStatus(dirk, { ...nbaOnly, israel: true }), 'yes');
+  // explicit "no" is not automatic
+  assert.equal(israelAuto(dirk, { ...nbaOnly, israel: false }), false);
+  // no path yet and nothing marked → still unchecked
+  assert.equal(israelStatus(dirk, { stints: [{ team: 'X', country: 'ספרד' }] }), '');
 });
