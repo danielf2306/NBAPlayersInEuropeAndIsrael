@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>דראפט NBA ← אירופה וישראל</title>
   <meta name="description" content="מעקב אחרי שחקני דראפט ה-NBA מאז 1980: מי עבר מה-NBA לאירופה, מי הגיע מאירופה ל-NBA, ומי שיחק בישראל.">
-  <meta name="theme-color" content="#1d3f8f" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#101418" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#0c1733" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1733" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,16 +14,16 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
+  <link rel="preload" href="fonts/rubik-hebrew.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#/">
-      <img src="icons/icon.svg" alt="" width="32" height="32">
-      <span>דראפט NBA<small>אירופה · ישראל</small></span>
+      <svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#f26b1d"/><g fill="none" stroke="#2b1508" stroke-width="2.6" stroke-linecap="round"><circle cx="32" cy="32" r="30"/><path d="M2 32h60M32 2v60M11 11c12 11 12 31 0 42M53 11c-12 11-12 31 0 42"/></g></svg>
+      <span class="brand-text"><b>DRAFT → EUROPE</b><small>דראפט NBA · אירופה · ישראל</small></span>
     </a>
     <nav class="topnav" aria-label="ניווט ראשי">
       <a href="#/" data-nav="drafts">דראפטים</a>
@@ -36,7 +36,7 @@
   </header>
 
   <main id="app" tabindex="-1">
-    <p class="loading">טוען…</p>
+    <div class="loading"><svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#f26b1d"/><g fill="none" stroke="#2b1508" stroke-width="2.6" stroke-linecap="round"><circle cx="32" cy="32" r="30"/><path d="M2 32h60M32 2v60M11 11c12 11 12 31 0 42M53 11c-12 11-12 31 0 42"/></g></svg>טוען את הדראפטים…</div>
   </main>
 
   <nav class="bottomnav" aria-label="ניווט">

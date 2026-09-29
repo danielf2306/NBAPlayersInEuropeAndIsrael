@@ -3,6 +3,7 @@ import * as teams from './teams.js';
 import * as sync from './sync.js';
 import { attach as autocomplete } from './autocomplete.js';
 import { $, $$, esc, toast, dialog, download } from './dom.js';
+import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUNTRIES } from './nba.js';
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
   computePath, effectivePath, cameToIsrael, isChecked, playedNba, pathFlags, draftStats,
@@ -42,31 +43,37 @@ function israelBadge(a) {
   return `<span class="badge il">🇮🇱 ${esc(names.join(', ') || 'ישראל')}</span>`;
 }
 
+function empty(title, text) {
+  return `<div class="empty">${BALL_SVG}<b>${esc(title)}</b>${text}</div>`;
+}
+
 function playerRow(p, { showYear = false } = {}) {
   const a = store.ann(p);
   const path = effectivePath(p, a);
   const first = firstArrivalAfterNba(p, a) || firstEuropeArrival(a);
   const sub = [
-    p.team,
     p.college || (p.custom ? '' : 'ללא קולג׳'),
     playedNba(p) ? `${fmt(p.nbaGames)} מש׳ NBA` : 'לא שיחק ב-NBA',
-    first ? `אירופה: ${first.season != null && first.season !== '' ? seasonLabel(first.season) + ' ' : ''}${first.team || ''}` : '',
+    first ? `${first.country ? flag(first.country) + ' ' : ''}${first.season != null && first.season !== '' ? seasonLabel(first.season) + ' ' : ''}${first.team || ''}` : '',
   ].filter(Boolean).map((x) => `<bdi>${esc(x)}</bdi>`).join(' · ');
-  return `<li><a class="prow ${isChecked(p, a) ? '' : 'unchecked'}" href="#/player/${encodeURIComponent(p.id)}">
-    <span class="pick num">${p.pick ?? '–'}${showYear ? `<small>${p.year}</small>` : p.round ? `<small>סיבוב ${p.round}</small>` : ''}</span>
-    <span><span class="name ltr">${esc(p.name)}</span><br><span class="sub" dir="rtl">${sub}</span></span>
+  const cls = [isChecked(p, a) ? '' : 'unchecked', playedNba(p) ? '' : 'bust'].join(' ');
+  return `<li><a class="prow ${cls}" href="#/player/${encodeURIComponent(p.id)}">
+    ${jersey(p.pick, p.round)}
+    <span class="who"><span class="name ltr">${esc(p.name)}</span>
+      <span class="line2">${showYear ? `<span class="year-tag">${p.year}</span>` : ''}${teamChip(p.team)}<span class="sub" dir="rtl">${sub}</span></span></span>
     <span class="badges">${pathBadge(path)}${israelBadge(a)}</span>
   </a></li>`;
 }
 
 function tiles(list) {
   return `<div class="tiles">${list
-    .map((t) => `<div class="tile"><div class="label">${esc(t.label)}</div><div class="value num">${t.value}</div>${t.sub ? `<div class="sub">${esc(t.sub)}</div>` : ''}</div>`)
+    .map((t) => `<div class="tile ${t.cls || ''}"><div class="label">${esc(t.label)}</div><div class="value num">${t.value}</div>${t.sub ? `<div class="sub">${esc(t.sub)}</div>` : ''}</div>`)
     .join('')}</div>`;
 }
 
-function bars(entries, { limit = 12, empty = 'אין עדיין נתונים' } = {}) {
+function bars(entries, { limit = 12, empty = 'אין עדיין נתונים', flags = false } = {}) {
   if (!entries.length) return `<p class="muted small">${empty}</p>`;
+  if (flags) entries = entries.map(([k, v]) => [`${flag(k)} ${k}`, v]);
   const max = Math.max(...entries.map((e) => e[1]));
   const rest = entries.slice(limit);
   const shown = entries.slice(0, limit);
@@ -79,13 +86,13 @@ function bars(entries, { limit = 12, empty = 'אין עדיין נתונים' } 
 function statTiles(s) {
   return tiles([
     { label: 'נבחרים', value: fmt(s.total) },
-    { label: 'שיחקו ב-NBA', value: fmt(s.playedNba), sub: `${pct(s.playedNba, s.total)}%` },
-    { label: 'מה-NBA לאירופה', value: fmt(s.nbaToEurope), sub: 'שיחקו ב-NBA ואז באירופה' },
-    { label: 'מאירופה ל-NBA', value: fmt(s.europeToNba), sub: 'שיחקו באירופה ואז ב-NBA' },
-    { label: 'הלוך ושוב', value: fmt(s.backAndForth), sub: 'אירופה, NBA וחזרה (נספרים בשניהם)' },
-    { label: 'שיחקו באירופה', value: fmt(s.europe), sub: `${pct(s.europe, s.total)}% מהנבחרים` },
-    { label: 'הגיעו לישראל', value: fmt(s.israel), sub: `${pct(s.israel, s.total)}% מהנבחרים` },
-    { label: 'נבדקו', value: `${pct(s.checked, s.total)}%`, sub: `${s.checked} מתוך ${s.total}` },
+    { label: 'שיחקו ב-NBA', value: fmt(s.playedNba), sub: `${pct(s.playedNba, s.total)}%`, cls: 't-nba' },
+    { label: 'מה-NBA לאירופה', value: fmt(s.nbaToEurope), sub: 'שיחקו ב-NBA ואז באירופה', cls: 't-nbaeu' },
+    { label: 'מאירופה ל-NBA', value: fmt(s.europeToNba), sub: 'שיחקו באירופה ואז ב-NBA', cls: 't-eunba' },
+    { label: 'הלוך ושוב', value: fmt(s.backAndForth), sub: 'אירופה, NBA וחזרה (נספרים בשניהם)', cls: 't-both' },
+    { label: 'שיחקו באירופה', value: fmt(s.europe), sub: `${pct(s.europe, s.total)}% מהנבחרים`, cls: 't-eu' },
+    { label: 'הגיעו לישראל', value: fmt(s.israel), sub: `${pct(s.israel, s.total)}% מהנבחרים`, cls: 't-il' },
+    { label: 'נבדקו', value: `${pct(s.checked, s.total)}%`, sub: `${s.checked} מתוך ${s.total}`, cls: 't-check' },
   ]);
 }
 
@@ -94,6 +101,20 @@ function setNav(name) {
 }
 
 // ---------------------------------------------------------------- views: drafts
+
+const ERAS = {
+  1980: ['עידן מג׳יק ובירד', 'סאבוניס, פטרוביץ׳ והדור הראשון מאירופה'],
+  1990: ['עידן ג׳ורדן', 'קוקוץ׳, דיבאץ׳ והפריצה האירופית'],
+  2000: ['המהפכה הבינלאומית', 'נוביצקי, פארקר, ג׳ינובילי — והשיבה לאירופה'],
+  2010: ['עידן השלשות', 'יותר בינלאומיים מאי פעם'],
+  2020: ['הדור החדש', 'דונצ׳יץ׳, וומבניאמה ואבדיה'],
+};
+
+function ring(value, label) {
+  const r = 38;
+  const c = 2 * Math.PI * r;
+  return `<div class="ring" role="img" aria-label="${value}% ${esc(label)}"><svg viewBox="0 0 92 92"><circle class="track" cx="46" cy="46" r="${r}"/><circle class="val" cx="46" cy="46" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - value / 100)}"/></svg><div class="lbl"><b>${value}%</b><small>${esc(label)}</small></div></div>`;
+}
 
 function viewDrafts() {
   setNav('drafts');
@@ -106,18 +127,35 @@ function viewDrafts() {
     if (!byDecade.has(dec)) byDecade.set(dec, []);
     byDecade.get(dec).push(d);
   }
-  let html = `<div class="page-head"><h1>דראפטים</h1><button class="btn primary" id="add-draft">+ דראפט ידני</button></div>
-  <section class="card">
-    <div class="row"><strong>ההתקדמות שלך</strong><span class="spacer"></span><span class="muted small">${total.checked} מתוך ${fmt(total.total)} שחקנים נבדקו</span></div>
-    <div class="progress"><span style="width:${pct(total.checked, total.total)}%"></span></div>
-    <div class="row" style="margin-top:10px"><span class="badge nba_eu">מ-NBA לאירופה: ${total.nbaToEurope}</span><span class="badge eu_nba">מאירופה ל-NBA: ${total.europeToNba}</span><span class="badge il">🇮🇱 בישראל: ${total.israel}</span></div>
+  const years = list.filter((d) => !d.custom).map((d) => d.year);
+  let html = `
+  <section class="hero">
+    ${COURT_SVG}
+    <div class="hero-top">
+      <div>
+        <div class="kicker">NBA DRAFT ${Math.min(...years)}–${Math.max(...years)}</div>
+        <h1>מהדראפט <span class="accent">לאירופה</span><br>ומשם לישראל</h1>
+        <p>${fmt(total.total)} בחירות דראפט. מי עבר מה-NBA לאירופה, מי הגיע מאירופה ל-NBA — ומי נחת אצלנו.</p>
+      </div>
+      ${ring(pct(total.checked, total.total), 'נבדקו')}
+    </div>
+    <div class="scoreboard">
+      <div class="score"><div class="v">${fmt(total.nbaToEurope)}</div><div class="l">מה-NBA לאירופה</div></div>
+      <div class="score"><div class="v">${fmt(total.europeToNba)}</div><div class="l">מאירופה ל-NBA</div></div>
+      <div class="score il"><div class="v">${fmt(total.israel)}</div><div class="l">🇮🇱 הגיעו לישראל</div></div>
+      <div class="score"><div class="v">${fmt(total.checked)}</div><div class="l">שחקנים נבדקו</div></div>
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn primary" id="add-draft">+ דראפט ידני</button><a class="btn" href="#/stats">לסטטיסטיקה</a></div>
   </section>`;
   for (const [dec, ds] of byDecade) {
-    html += `<h2 class="decade">שנות ה-${String(dec).slice(2)} · ${dec}</h2><div class="draft-grid">`;
+    const [name, sub] = ERAS[dec] || ['', ''];
+    html += `<div class="era-head ${eraClass(dec)}"><span class="era">${dec}s</span><span><div class="era-name">${esc(name || `שנות ה-${String(dec).slice(2)}`)}</div><div class="era-sub">${esc(sub)}</div></span></div><div class="draft-grid">`;
     for (const d of ds) {
       const s = draftStats(store.rows(store.draftPlayers(d.id)));
-      html += `<a class="draft-card" href="#/draft/${encodeURIComponent(d.id)}">
-        <div class="year num">${d.year}</div>
+      html += `<a class="draft-card ${eraClass(d.year)}" href="#/draft/${encodeURIComponent(d.id)}">
+        ${BALL_SVG.replace('class="ball"', 'class="wm"')}
+        ${s.total && s.checked === s.total ? '<span class="done">✓ הושלם</span>' : ''}
+        <div class="year">${d.year}</div>
         <div class="title">${d.custom ? esc(d.title || 'דראפט ידני') : `${s.total} נבחרים · ${s.playedNba} ב-NBA`}</div>
         <div class="meta">${s.nbaToEurope ? `<span class="badge nba_eu">מ-NBA לאירופה ${s.nbaToEurope}</span>` : ''}${s.europeToNba ? `<span class="badge eu_nba">מאירופה ל-NBA ${s.europeToNba}</span>` : ''}${s.israel ? `<span class="badge il">🇮🇱 ${s.israel}</span>` : ''}</div>
         <div class="progress" title="נבדקו ${s.checked} מתוך ${s.total}"><span style="width:${pct(s.checked, s.total)}%"></span></div>
@@ -168,16 +206,21 @@ function viewDraft(id) {
   const q = ui.draftQuery[id] || '';
   const rounds = [...new Set(players.map((p) => p.round).filter(Boolean))].sort((a, b) => a - b);
 
+  const top3 = players.filter((p) => p.pick).slice(0, 3);
   app.innerHTML = `
-  <div class="crumbs"><a href="#/">דראפטים</a> ›</div>
-  <div class="page-head">
-    <h1>דראפט ${esc(draftTitle(d))}</h1>
-    <div class="row">
-      <button class="btn" id="add-player">+ שחקן</button>
+  <section class="hero draft-hero ${eraClass(d.year)}">
+    ${COURT_SVG}
+    <span class="big-year" aria-hidden="true">${d.year}</span>
+    <div class="crumbs"><a href="#/">דראפטים</a> ›</div>
+    <div class="kicker">NBA DRAFT</div>
+    <h1>דראפט <span class="display">${d.year}</span>${d.custom && d.title ? `<small class="small" style="font-weight:500;opacity:.8">${esc(d.title)}</small>` : ''}</h1>
+    ${top3.length ? `<div class="podium">${top3.map((p) => `<a href="#/player/${encodeURIComponent(p.id)}"><span class="pk">#${p.pick}</span><span class="nm ltr">${esc(p.name)}</span><span class="tm">${teamChip(p.team)}</span></a>`).join('')}</div>` : ''}
+    <div class="row" style="margin-top:14px">
+      <button class="btn primary" id="add-player">+ שחקן</button>
       <button class="btn" id="paste-players">הדבקת רשימה</button>
       ${d.custom ? `<button class="btn" id="edit-draft">עריכה</button>` : ''}
     </div>
-  </div>
+  </section>
 
   <details class="card" open>
     <summary>סטטיסטיקה לדראפט ${d.year}</summary>
@@ -197,7 +240,7 @@ function viewDraft(id) {
       </div>
       <div>
         <h3>מדינות באירופה</h3>
-        ${bars(s.europeCountries, { empty: 'עוד לא הוזנו קבוצות באירופה' })}
+        ${bars(s.europeCountries, { empty: 'עוד לא הוזנו קבוצות באירופה', flags: true })}
       </div>
       <div>
         <h3>עונת הגעה לאירופה (אחרי ה-NBA)</h3>
@@ -220,7 +263,7 @@ function viewDraft(id) {
     const nq = normalize(ui.draftQuery[id] || '');
     const fn = f.startsWith('r') ? (p) => String(p.round) === f.slice(1) : FILTERS.find((x) => x[0] === f)[2];
     const shown = rows.filter((r) => fn(r.player, r.ann) && (!nq || normalize(`${r.player.name} ${r.player.college || ''} ${r.player.team || ''}`).includes(nq)));
-    $('#plist').innerHTML = shown.length ? shown.map((r) => playerRow(r.player)).join('') : `<li class="empty">${players.length ? 'אין שחקנים שמתאימים לסינון' : 'אין עדיין שחקנים בדראפט הזה — הוסף שחקן או הדבק רשימה'}</li>`;
+    $('#plist').innerHTML = shown.length ? shown.map((r) => playerRow(r.player)).join('') : `<li>${players.length ? empty('AIRBALL', 'אין שחקנים שמתאימים לסינון') : empty('EMPTY ROSTER', 'אין עדיין שחקנים בדראפט הזה — הוסף שחקן או הדבק רשימה')}</li>`;
   };
   renderList();
 
@@ -354,6 +397,37 @@ function extLinks(p) {
   return links.map(([t, u]) => `<a class="btn small" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('');
 }
 
+const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_only: '🏀', eu_only: '🇪🇺', none: '—' };
+
+/** Career timeline: NBA / Europe / Israel lanes on one season axis. */
+function timeline(p, a) {
+  const segs = [];
+  if (playedNba(p) && p.nbaFrom) segs.push({ lane: 'nba', from: p.nbaFrom - 1, to: (p.nbaTo || p.nbaFrom) - 1, label: 'NBA' });
+  for (const st of a.stints || []) {
+    if (st.season == null || st.season === '') continue;
+    const from = Number(st.season);
+    const to = st.until != null && st.until !== '' ? Math.max(from, Number(st.until)) : from;
+    segs.push({ lane: st.country === ISRAEL ? 'il' : 'eu', from, to, label: st.team || '?', title: `${st.team || ''} ${seasonLabel(from)}${to > from ? `–${seasonLabel(to)}` : ''}` });
+  }
+  if (!segs.length) return '';
+  const min = Math.min(...segs.map((x) => x.from));
+  const max = Math.max(...segs.map((x) => x.to)) + 1;
+  const span = Math.max(max - min, 1);
+  const pos = (y) => ((y - min) / span) * 100;
+  const lanes = [['nba', 'NBA'], ['eu', 'אירופה'], ['il', 'ישראל']].filter(([k]) => segs.some((x) => x.lane === k));
+  const step = span > 16 ? 5 : span > 6 ? 2 : 1;
+  const ticks = [];
+  for (let y = Math.ceil(min / step) * step; y <= max; y += step) ticks.push(y);
+  return lanes.map(([k, name]) => `<div class="tl-row"><span class="tl-label">${name}</span><div class="tl-lane">${segs
+    .filter((x) => x.lane === k)
+    .map((x) => {
+      const w = pos(x.to + 1) - pos(x.from);
+      return `<span class="tl-seg ${k}" style="left:${pos(x.from)}%;width:${w}%" title="${esc(x.title || `${seasonLabel(x.from)}–${seasonLabel(x.to)}`)}">${w >= 14 ? esc(x.label) : ''}</span>`;
+    })
+    .join('')}</div></div>`).join('')
+    + `<div class="tl-axis">${ticks.map((y) => `<span style="left:${pos(y)}%">${y}</span>`).join('')}</div>`;
+}
+
 function viewPlayer(id) {
   setNav('drafts');
   const p = store.player(id);
@@ -386,43 +460,55 @@ function viewPlayer(id) {
     }, 350);
   };
 
+  const [t1, t2] = teamColors(p.team);
+  const seasons = p.nbaFrom ? (p.nbaTo || p.nbaFrom) - p.nbaFrom + 1 : 0;
   app.innerHTML = `
-  <div class="crumbs"><a href="#/">דראפטים</a> › <a href="#/draft/${encodeURIComponent(p.draftId)}">דראפט ${esc(d ? draftTitle(d) : p.year)}</a> ›</div>
-  <div class="page-head">
-    <div><h1 class="ltr" style="text-align:right">${esc(p.name)}</h1>
-    <div class="muted">${p.pick ? `בחירה ${p.pick}` : ''}${p.round ? ` · סיבוב ${p.round}` : ''}${p.team ? ` · <span class="ltr">${esc(p.team)}</span>` : ''} · ${p.year}</div></div>
-    <button class="btn" id="edit-player">עריכת פרטים</button>
-  </div>
+  <section class="player-hero" style="--t1:${t1};--t2:${t2}">
+    ${COURT_SVG}
+    ${p.pick ? `<span class="pick-wm" aria-hidden="true">#${p.pick}</span>` : ''}
+    <div class="top">
+      <div class="crumbs"><a href="#/">דראפטים</a> › <a href="#/draft/${encodeURIComponent(p.draftId)}">דראפט ${esc(d ? draftTitle(d) : p.year)}</a></div>
+      <button class="btn" id="edit-player">עריכה</button>
+    </div>
+    <h1>${esc(p.name)}</h1>
+    <div class="meta">${teamChip(p.team)}<span>דראפט ${p.year}${p.pick ? ` · בחירה ${p.pick}` : ''}${p.round ? ` · סיבוב ${p.round}` : ''}</span>${p.pos ? `<span class="badge outline" style="color:#fff;border-color:rgb(255 255 255 / 35%)">${esc(p.pos)}</span>` : ''}</div>
+    <div class="cardback">
+      <div><b>${p.pick ? `#${p.pick}` : '—'}</b><span>בחירה</span></div>
+      <div><b>${p.round ?? '—'}</b><span>סיבוב</span></div>
+      <div><b>${fmt(p.nbaGames)}</b><span>משחקי NBA</span></div>
+      <div><b>${seasons || '—'}</b><span>עונות NBA</span></div>
+    </div>
+  </section>
 
   <section class="card">
     <dl class="facts">
       <div><dt>מכללה / מוצא</dt><dd>${esc(p.college || 'ללא קולג׳ (כנראה בינלאומי)')}</dd></div>
-      <div><dt>משחקים ב-NBA</dt><dd class="num">${fmt(p.nbaGames)}</dd></div>
-      <div><dt>עונות ב-NBA</dt><dd class="num">${esc(nbaSeasons(p) || '—')}</dd></div>
-      <div><dt>עמדה</dt><dd>${esc(p.pos || '—')}</dd></div>
+      <div><dt>עונות ב-NBA</dt><dd class="num">${esc(nbaSeasons(p) || 'לא שיחק ב-NBA')}</dd></div>
+      <div><dt>קבוצה בוחרת</dt><dd class="ltr" style="text-align:right">${esc(teamColors(p.team)[2] || '—')}</dd></div>
       ${p.born ? `<div><dt>תאריך לידה</dt><dd class="num">${esc(p.born)}</dd></div>` : ''}
     </dl>
     <div class="links">${extLinks(p)}</div>
   </section>
 
   <section class="card">
-    <h2>מסלול NBA ↔ אירופה</h2>
+    <h2>המסלול: NBA ↔ אירופה</h2>
+    <div id="timeline" class="timeline"></div>
     <div id="summary" class="summary-line"></div>
     <div class="segmented" id="path" role="group" aria-label="מסלול">
-      <button type="button" data-path="">אוטומטי</button>
-      ${Object.entries(PATHS).map(([k, v]) => `<button type="button" data-path="${k}" title="${esc(v.desc)}">${esc(v.label)}</button>`).join('')}
+      <button type="button" data-path=""><span class="ic">✨</span>אוטומטי</button>
+      ${Object.entries(PATHS).map(([k, v]) => `<button type="button" data-path="${k}" title="${esc(v.desc)}"><span class="ic">${PATH_ICONS[k]}</span>${esc(v.label)}</button>`).join('')}
     </div>
     <p class="hint">״אוטומטי״ מחשב את המסלול לפי עונות ה-NBA ועונות הקבוצות שהזנת (ישראל נחשבת לאירופה). שחקן שבדקת ולא שיחק באירופה — סמן ״NBA בלבד״.</p>
   </section>
 
   <section class="card">
-    <h2>קבוצות באירופה</h2>
+    <h2>קבוצות באירופה 🇪🇺</h2>
     <div class="stints" id="eu-stints"></div>
     <button class="btn" id="add-eu" type="button">+ הוספת קבוצה באירופה</button>
   </section>
 
-  <section class="card">
-    <h2>🇮🇱 ישראל</h2>
+  <section class="card il-card">
+    <h2>ישראל 🇮🇱</h2>
     <div class="segmented" id="il" role="group" aria-label="הגיע לישראל?">
       <button type="button" data-il="">לא נבדק</button>
       <button type="button" data-il="no">לא הגיע לישראל</button>
@@ -461,6 +547,7 @@ function viewPlayer(id) {
     }
     const label = path ? `<strong>${esc(PATHS[path].label)}</strong>${!work.path && computed ? ' <span class="muted small">(חושב אוטומטית)</span>' : ''}` : '<strong>לא נקבע עדיין</strong>';
     $('#summary').innerHTML = `${label}<br>${esc(parts.join(' '))}`;
+    $('#timeline').innerHTML = timeline(p, work);
     $$('#path button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.path === (work.path || ''))));
     const ilState = work.israel === true || israelStints(work).length ? 'yes' : work.israel === false ? 'no' : '';
     $$('#il button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.il === ilState)));
@@ -512,6 +599,10 @@ function viewPlayer(id) {
       } else {
         const c = row.querySelector('[name=country]');
         c.oninput = () => { s.country = c.value.trim(); save(); };
+        autocomplete(c, {
+          source: (q) => COUNTRIES.filter((x) => x !== ISRAEL && normalize(x).includes(normalize(q))).map((x) => ({ name: x, meta: flag(x) })),
+          onSelect: (it) => { s.country = it.name; save(); },
+        });
       }
       row.querySelector('[data-remove]').onclick = () => {
         work.stints.splice(work.stints.indexOf(s), 1);
@@ -604,8 +695,19 @@ function viewStats() {
   const metric = ui.statsMetric;
 
   app.innerHTML = `
-  <div class="page-head"><h1>סטטיסטיקה</h1></div>
-  <section class="card">${statTiles(all)}</section>
+  <section class="hero">
+    ${COURT_SVG}
+    <div class="kicker">BOX SCORE</div>
+    <h1>סטטיסטיקה</h1>
+    <p>כל הדראפטים יחד — ${fmt(all.total)} בחירות, ${fmt(all.playedNba)} שיחקו ב-NBA.</p>
+    <div class="scoreboard">
+      <div class="score"><div class="v">${fmt(all.nbaToEurope)}</div><div class="l">מה-NBA לאירופה</div></div>
+      <div class="score"><div class="v">${fmt(all.europeToNba)}</div><div class="l">מאירופה ל-NBA</div></div>
+      <div class="score"><div class="v">${fmt(all.backAndForth)}</div><div class="l">הלוך ושוב</div></div>
+      <div class="score il"><div class="v">${fmt(all.israel)}</div><div class="l">🇮🇱 בישראל</div></div>
+    </div>
+  </section>
+  <section class="card"><h2>הנתונים המלאים</h2>${statTiles(all)}</section>
   <section class="card">
     <div class="row" style="margin-bottom:8px"><h2 style="margin:0">לפי שנת דראפט</h2><span class="spacer"></span>
       <select id="metric" style="width:auto">${Object.entries(METRICS).map(([k, v]) => `<option value="${k}" ${k === metric ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -614,7 +716,7 @@ function viewStats() {
   </section>
   <div class="grid-2">
     <section class="card"><h2>קבוצות בישראל</h2>${bars(all.israelTeams, { limit: 15, empty: 'עוד לא סומנו שחקנים בישראל' })}</section>
-    <section class="card"><h2>מדינות באירופה</h2>${bars(all.europeCountries, { limit: 15, empty: 'עוד לא הוזנו קבוצות באירופה' })}</section>
+    <section class="card"><h2>מדינות באירופה</h2>${bars(all.europeCountries, { limit: 15, empty: 'עוד לא הוזנו קבוצות באירופה', flags: true })}</section>
     <section class="card"><h2>קבוצות באירופה</h2>${bars(all.europeTeams, { limit: 15, empty: 'עוד לא הוזנו קבוצות באירופה' })}</section>
     <section class="card"><h2>עונת הגעה לאירופה (אחרי NBA)</h2>${bars(all.arrivalSeasons, { limit: 15 })}</section>
   </div>
@@ -622,7 +724,7 @@ function viewStats() {
     <h2>טבלה לפי דראפט</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>דראפט</th><th class="num">נבחרים</th><th class="num">ב-NBA</th><th class="num">מ-NBA לאירופה</th><th class="num">מאירופה ל-NBA</th><th class="num">הלוך ושוב</th><th class="num">באירופה</th><th class="num">ישראל</th><th class="num">נבדקו</th></tr></thead>
-      <tbody>${per.slice().reverse().map(({ d, s }) => `<tr data-href="#/draft/${encodeURIComponent(d.id)}" style="cursor:pointer"><td><a href="#/draft/${encodeURIComponent(d.id)}">${esc(draftTitle(d))}</a></td><td class="num">${s.total}</td><td class="num">${s.playedNba}</td><td class="num">${s.nbaToEurope}</td><td class="num">${s.europeToNba}</td><td class="num">${s.backAndForth}</td><td class="num">${s.europe}</td><td class="num">${s.israel}</td><td class="num">${pct(s.checked, s.total)}%</td></tr>`).join('')}</tbody>
+      <tbody>${per.slice().reverse().map(({ d, s }) => `<tr data-href="#/draft/${encodeURIComponent(d.id)}" style="cursor:pointer"><td class="big"><a href="#/draft/${encodeURIComponent(d.id)}">${esc(draftTitle(d))}</a></td><td class="num">${s.total}</td><td class="num">${s.playedNba}</td><td class="num">${s.nbaToEurope}</td><td class="num">${s.europeToNba}</td><td class="num">${s.backAndForth}</td><td class="num">${s.europe}</td><td class="num">${s.israel}</td><td class="num">${pct(s.checked, s.total)}%</td></tr>`).join('')}</tbody>
     </table></div>
   </section>`;
 
@@ -677,12 +779,21 @@ function viewIsrael() {
   }
   const teamsSorted = [...byTeam.entries()].sort((x, y) => y[1].length - x[1].length || x[0].localeCompare(y[0], 'he'));
   app.innerHTML = `
-  <div class="page-head"><h1>🇮🇱 שחקני דראפט שהגיעו לישראל</h1><span class="muted">${count} שחקנים · ${byTeam.size} קבוצות</span></div>
+  <section class="hero" style="--jumbo:linear-gradient(135deg,#001a5c 0%,#0038b8 60%,#3d6be0 100%)">
+    ${COURT_SVG}
+    <div class="kicker">ISRAELI BASKETBALL</div>
+    <h1>נחתו <span class="accent">בישראל</span> 🇮🇱</h1>
+    <p>שחקני דראפט NBA ששיחקו בליגת העל, בלאומית או בארצית — לפי קבוצה.</p>
+    <div class="scoreboard">
+      <div class="score il"><div class="v">${count}</div><div class="l">שחקנים</div></div>
+      <div class="score il"><div class="v">${byTeam.size}</div><div class="l">קבוצות</div></div>
+    </div>
+  </section>
   ${teamsSorted.length ? `<div class="grid-2 israel-list">${teamsSorted.map(([team, list]) => {
     const info = teams.findIsraeli(team);
     return `<section class="card"><h3><span>${esc(team)}</span><span class="muted small">${info ? esc(ISRAEL_LEAGUES[info.league] || 'היסטורית') + ' · ' : ''}${list.length}</span></h3>
-      <ul>${list.sort((x, y) => (x.s.season ?? 9999) - (y.s.season ?? 9999)).map(({ p, s }) => `<li><a class="ltr" href="#/player/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="muted small">— ${s.season != null && s.season !== '' ? seasonLabel(s.season) + (s.until ? `–${seasonLabel(s.until)}` : '') + ' · ' : ''}${s.league ? ISRAEL_LEAGUES[s.league] + ' · ' : ''}דראפט ${p.year}${p.pick ? ` #${p.pick}` : ''}</span></li>`).join('')}</ul></section>`;
-  }).join('')}</div>` : `<div class="card empty">עוד לא סומנו שחקנים שהגיעו לישראל.<br>פתח שחקן מתוך דראפט וסמן ״הגיע לישראל״.</div>`}`;
+      <ul>${list.sort((x, y) => (x.s.season ?? 9999) - (y.s.season ?? 9999)).map(({ p, s }) => `<li>${teamChip(p.team)}<a class="ltr" style="font-weight:700" href="#/player/${encodeURIComponent(p.id)}">${esc(p.name)}</a> <span class="muted small">— ${s.season != null && s.season !== '' ? seasonLabel(s.season) + (s.until ? `–${seasonLabel(s.until)}` : '') + ' · ' : ''}${s.league ? ISRAEL_LEAGUES[s.league] + ' · ' : ''}דראפט ${p.year}${p.pick ? ` #${p.pick}` : ''}</span></li>`).join('')}</ul></section>`;
+  }).join('')}</div>` : `<div class="card">${empty('NO ROSTER YET', 'עוד לא סומנו שחקנים שהגיעו לישראל.<br>פתח שחקן מתוך דראפט וסמן ״הגיע לישראל״.')}</div>`}`;
 }
 
 // ---------------------------------------------------------------- views: search
@@ -711,7 +822,7 @@ function viewSearch(params) {
     const shown = !nq && filter === 'all' ? [] : res.slice(0, 200);
     $('#results').innerHTML = shown.length
       ? shown.map(({ p }) => playerRow(p, { showYear: true })).join('') + (res.length > 200 ? `<li class="empty">מוצגים 200 מתוך ${res.length}</li>` : '')
-      : `<li class="empty">${nq || filter !== 'all' ? 'לא נמצאו שחקנים' : 'הקלד שם שחקן או בחר סינון'}</li>`;
+      : `<li>${nq || filter !== 'all' ? empty('AIRBALL', 'לא נמצאו שחקנים') : empty('SCOUTING', 'הקלד שם שחקן, מכללה או קבוצה — או בחר סינון')}</li>`;
     history.replaceState(null, '', `#/search?q=${encodeURIComponent($('#q').value)}&f=${filter}`);
   };
   $('#q').oninput = run;
@@ -861,7 +972,7 @@ function applyTheme() {
 // ---------------------------------------------------------------- router
 
 function notFound() {
-  app.innerHTML = `<div class="card empty">הדף לא נמצא. <a href="#/">חזרה לדראפטים</a></div>`;
+  app.innerHTML = `<div class="card">${empty('OUT OF BOUNDS', 'הדף לא נמצא. <a href="#/">חזרה לדראפטים</a>')}</div>`;
 }
 
 let lastRoute = '';

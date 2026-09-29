@@ -1,10 +1,16 @@
 // Offline support: app shell and data are cached; updates are fetched in the background.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `nbaeu-${VERSION}`;
 const SHELL = [
   './',
   'index.html',
   'css/style.css',
+  'css/fonts.css',
+  'fonts/rubik-hebrew.woff2',
+  'fonts/rubik-latin.woff2',
+  'fonts/rubik-latin-ext.woff2',
+  'fonts/bebas-neue-latin.woff2',
+  'fonts/bebas-neue-latin-ext.woff2',
   'js/app.js',
   'js/store.js',
   'js/model.js',
@@ -12,6 +18,7 @@ const SHELL = [
   'js/sync.js',
   'js/dom.js',
   'js/autocomplete.js',
+  'js/nba.js',
   'data/drafts.json',
   'data/teams-israel.json',
   'data/teams-europe.json',
@@ -33,7 +40,7 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Stale-while-revalidate for same-origin GETs; everything else (GitHub API, fonts) goes to the network.
+// Stale-while-revalidate for same-origin GETs; everything else (GitHub API) goes to the network.
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;

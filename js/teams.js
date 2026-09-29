@@ -1,6 +1,7 @@
 // Team lists for autocomplete: Israeli leagues + European clubs + anything the user typed before.
 import { ISRAEL, ISRAEL_LEAGUES, normalize } from './model.js';
 import * as store from './store.js';
+import { flag } from './nba.js';
 
 let israel = [];
 let europe = [];
@@ -23,7 +24,7 @@ export async function init() {
       group: LEAGUE_LABEL[t.league] || 'ישראל',
     }))
     .sort((a, b) => (LEAGUE_ORDER[a.league] ?? 9) - (LEAGUE_ORDER[b.league] ?? 9) || a.name.localeCompare(b.name, 'he'));
-  europe = eu.map((t) => ({ name: t.en, alt: t.he || '', country: t.country, meta: t.country, group: t.country }));
+  europe = eu.map((t) => ({ name: t.en, alt: t.he || '', country: t.country, meta: `${flag(t.country)} ${t.country}`, group: `${flag(t.country)} ${t.country}` }));
   for (const t of [...israel, ...europe]) t.key = normalize(`${t.name} ${t.alt} ${t.country === ISRAEL ? '' : t.country}`);
 }
 
