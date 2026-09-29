@@ -1,0 +1,10 @@
+{
+  "name": "nba-players-in-europe-and-israel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx http-server -c-1 -p 8080 .",
+    "test": "node --test tests/*.test.mjs",
+    "build:drafts": "python3 tools/build_drafts.py"
+  }
+}

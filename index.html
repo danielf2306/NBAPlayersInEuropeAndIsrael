@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>דראפט NBA ← אירופה וישראל</title>
+  <meta name="description" content="מעקב אחרי שחקני דראפט ה-NBA מאז 1980: מי עבר מה-NBA לאירופה, מי הגיע מאירופה ל-NBA, ומי שיחק בישראל.">
+  <meta name="theme-color" content="#0c1733" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1733" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="דראפט NBA">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/rubik-hebrew.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/bebas-neue-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#f26b1d"/><g fill="none" stroke="#2b1508" stroke-width="2.6" stroke-linecap="round"><circle cx="32" cy="32" r="30"/><path d="M2 32h60M32 2v60M11 11c12 11 12 31 0 42M53 11c-12 11-12 31 0 42"/></g></svg>
+      <span class="brand-text"><b>DRAFT → EUROPE</b><small>דראפט NBA · אירופה · ישראל</small></span>
+    </a>
+    <nav class="topnav" aria-label="ניווט ראשי">
+      <a href="#/" data-nav="drafts">דראפטים</a>
+      <a href="#/stats" data-nav="stats">סטטיסטיקה</a>
+      <a href="#/israel" data-nav="israel">בישראל</a>
+      <a href="#/search" data-nav="search">חיפוש</a>
+      <a href="#/settings" data-nav="settings">הגדרות</a>
+    </nav>
+    <span id="sync-badge" class="sync-badge" hidden></span>
+  </header>
+
+  <main id="app" tabindex="-1">
+    <div class="loading"><svg class="ball" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#f26b1d"/><g fill="none" stroke="#2b1508" stroke-width="2.6" stroke-linecap="round"><circle cx="32" cy="32" r="30"/><path d="M2 32h60M32 2v60M11 11c12 11 12 31 0 42M53 11c-12 11-12 31 0 42"/></g></svg>טוען את הדראפטים…</div>
+  </main>
+
+  <nav class="bottomnav" aria-label="ניווט">
+    <a href="#/" data-nav="drafts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>דראפטים</a>
+    <a href="#/stats" data-nav="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>סטטיסטיקה</a>
+    <a href="#/israel" data-nav="israel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 14H4zM12 21L4 7h16z"/></svg>בישראל</a>
+    <a href="#/search" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>חיפוש</a>
+    <a href="#/settings" data-nav="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>הגדרות</a>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
