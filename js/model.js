@@ -6,6 +6,7 @@ export const PATHS = {
   nba_eu: { label: 'מה-NBA לאירופה', short: 'מ-NBA לאירופה', desc: 'שיחק ב-NBA ואז הגיע לאירופה' },
   eu_nba: { label: 'מאירופה ל-NBA', short: 'מאירופה ל-NBA', desc: 'הגיע מאירופה ואז שיחק ב-NBA' },
   eu_nba_eu: { label: 'אירופה, NBA וחזרה לאירופה', short: 'הלוך ושוב', desc: 'שיחק באירופה, עבר ל-NBA וחזר לאירופה' },
+  nba_eu_nba: { label: 'NBA, אירופה וחזרה ל-NBA', short: 'חזר ל-NBA', desc: 'שיחק ב-NBA, יצא לאירופה וחזר ל-NBA' },
   nba_only: { label: 'NBA בלבד', short: 'NBA בלבד', desc: 'שיחק ב-NBA ולא שיחק באירופה' },
   eu_only: { label: 'אירופה בלבד', short: 'אירופה בלבד', desc: 'לא שיחק ב-NBA, שיחק באירופה' },
   none: { label: 'לא NBA ולא אירופה', short: 'אחר', desc: 'לא שיחק ב-NBA וגם לא באירופה' },
@@ -78,11 +79,28 @@ export function firstEuropeArrival(a) {
   return sortStints(withSeason)[0];
 }
 
-/** First arrival in Europe *after* the NBA career started (for NBA→Europe players). */
+const hasSeason = (s) => s.season != null && s.season !== '';
+
+/**
+ * Where a European stint sits relative to the NBA career:
+ *   'before' – before the first NBA season (or during it, when the career went on),
+ *   'middle' – before the last NBA season, so he came back to the NBA afterwards,
+ *   'after'  – in or after the last NBA season.
+ * nbaFrom/nbaTo are season end years (1999 = 1998/99); stint.season is a start year.
+ */
+export function stintPhase(p, s) {
+  if (!hasSeason(s) || !p.nbaFrom) return null;
+  const end = Number(s.season) + 1;
+  const to = p.nbaTo || p.nbaFrom;
+  if (end < p.nbaFrom) return 'before';
+  if (end >= to) return 'after';
+  if (end === p.nbaFrom) return 'before';
+  return 'middle';
+}
+
+/** First arrival in Europe after the NBA career started (mid-career or at its end). */
 export function firstArrivalAfterNba(p, a) {
-  if (!p.nbaFrom) return null;
-  const nbaStart = p.nbaFrom - 1;
-  return sortStints((a?.stints || []).filter((s) => s.season != null && s.season !== '' && Number(s.season) >= nbaStart))[0] || null;
+  return sortStints((a?.stints || []).filter((s) => ['middle', 'after'].includes(stintPhase(p, s))))[0] || null;
 }
 
 export function playedNba(p) {
@@ -95,16 +113,16 @@ export function playedNba(p) {
  * Returns '' when there isn't enough information yet.
  */
 export function computePath(p, a) {
-  const stints = (a?.stints || []).filter((s) => s.season != null && s.season !== '');
+  const stints = (a?.stints || []).filter(hasSeason);
   const anyStint = (a?.stints || []).length > 0;
   if (!playedNba(p)) return anyStint ? 'eu_only' : '';
   if (!anyStint) return '';
   if (!stints.length || !p.nbaFrom) return '';
-  const nbaStart = p.nbaFrom - 1;
-  const before = stints.some((s) => Number(s.season) < nbaStart);
-  const after = stints.some((s) => Number(s.season) >= nbaStart);
-  if (before && after) return 'eu_nba_eu';
+  const phases = new Set(stints.map((s) => stintPhase(p, s)));
+  const before = phases.has('before');
+  if (before && (phases.has('middle') || phases.has('after'))) return 'eu_nba_eu';
   if (before) return 'eu_nba';
+  if (phases.has('middle')) return 'nba_eu_nba';
   return 'nba_eu';
 }
 
@@ -124,9 +142,9 @@ export function isChecked(p, a) {
 
 export function pathFlags(path) {
   return {
-    nbaToEurope: path === 'nba_eu' || path === 'eu_nba_eu',
-    europeToNba: path === 'eu_nba' || path === 'eu_nba_eu',
-    europe: ['nba_eu', 'eu_nba', 'eu_nba_eu', 'eu_only'].includes(path),
+    nbaToEurope: ['nba_eu', 'eu_nba_eu', 'nba_eu_nba'].includes(path),
+    europeToNba: ['eu_nba', 'eu_nba_eu', 'nba_eu_nba'].includes(path),
+    europe: ['nba_eu', 'eu_nba', 'eu_nba_eu', 'nba_eu_nba', 'eu_only'].includes(path),
   };
 }
 
@@ -174,7 +192,7 @@ export function draftStats(rows) {
     if (isChecked(p, a)) s.checked++;
     if (f.nbaToEurope) { s.nbaToEurope++; rs.nbaToEurope++; }
     if (f.europeToNba) { s.europeToNba++; rs.europeToNba++; }
-    if (path === 'eu_nba_eu') s.backAndForth++;
+    if (path === 'eu_nba_eu' || path === 'nba_eu_nba') s.backAndForth++;
     if (f.europe) s.europe++;
     if (path === 'nba_only') s.nbaOnly++;
     if (path === 'eu_only') s.europeOnly++;

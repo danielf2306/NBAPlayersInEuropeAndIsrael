@@ -38,6 +38,19 @@ def na(v):
     return None if v in (None, "", "NA") else v
 
 
+def runs(season_set):
+    """NBA seasons as [from, to] runs, only when the career had gaps (else None)."""
+    if not season_set:
+        return None
+    out = []
+    for s in sorted(season_set):
+        if out and s == out[-1][1] + 1:
+            out[-1][1] = s
+        else:
+            out.append([s, s])
+    return out if len(out) > 1 else None
+
+
 def main():
     local_dir = sys.argv[1] if len(sys.argv) > 1 else None
     draft = load("draft", local_dir)
@@ -45,7 +58,7 @@ def main():
     career = {r["player_id"]: r for r in load("career", local_dir)}
 
     # NBA games / seasons per player (skip the multi-team summary rows).
-    games, first, last = {}, {}, {}
+    games, first, last, seasons = {}, {}, {}, {}
     for r in totals:
         if r["lg"] != "NBA" or r["team"] == "TOT" or re.fullmatch(r"\dTM", r["team"] or ""):
             continue
@@ -53,6 +66,7 @@ def main():
         games[pid] = games.get(pid, 0) + int(float(r["g"] or 0))
         first[pid] = min(first.get(pid, season), season)
         last[pid] = max(last.get(pid, season), season)
+        seasons.setdefault(pid, set()).add(season)
 
     drafts = {}
     for r in draft:
@@ -73,6 +87,7 @@ def main():
             last.get(pid),
             na(info.get("pos")),
             na(info.get("birth_date")),
+            runs(seasons.get(pid)),
         ])
 
     for year in drafts:
@@ -82,7 +97,7 @@ def main():
         "generated": date.today().isoformat(),
         "source": "Basketball-Reference via github.com/sumitrodatta/bball-reference-datasets",
         "fields": ["pick", "round", "team", "name", "bbrefId", "college",
-                   "nbaGames", "nbaFrom", "nbaTo", "pos", "born"],
+                   "nbaGames", "nbaFrom", "nbaTo", "pos", "born", "nbaRuns"],
         "drafts": {str(y): drafts[y] for y in sorted(drafts)},
     }
     with open(OUT, "w", encoding="utf-8") as f:

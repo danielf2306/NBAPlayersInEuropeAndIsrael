@@ -1,5 +1,5 @@
 // Offline support: app shell and data are cached; updates are fetched in the background.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `nbaeu-${VERSION}`;
 const SHELL = [
   './',

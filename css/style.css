@@ -282,7 +282,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--focus); out
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; white-space: nowrap; background: var(--neutral-bg); color: var(--text-2); }
 .badge.nba_eu { background: var(--nba-eu-bg); color: var(--nba-eu); }
 .badge.eu_nba { background: var(--eu-nba-bg); color: var(--eu-nba); }
-.badge.eu_nba_eu { background: var(--both-bg); color: var(--both); }
+.badge.eu_nba_eu, .badge.nba_eu_nba { background: var(--both-bg); color: var(--both); }
 .badge.il { background: var(--il-bg); color: var(--il); }
 .badge.outline { background: transparent; border: 1px solid var(--border); font-weight: 500; }
 
@@ -438,7 +438,7 @@ tbody tr:hover { background: var(--surface-2); }
 .tl-seg.eu { background: linear-gradient(90deg, #d4500c, #ff9a4d); }
 .tl-seg.il { background: linear-gradient(90deg, #0038b8, #4d7cff); }
 .tl-label { font-size: .75rem; font-weight: 800; color: var(--text-2); }
-.tl-axis { position: relative; height: 16px; margin-inline-start: 66px; font-size: .68rem; color: var(--muted); direction: ltr; }
+.tl-axis { position: relative; height: 16px; margin: 0 66px 0 0; font-size: .68rem; color: var(--muted); direction: ltr; } /* lanes sit left of the 58px label column + 8px gap */
 .tl-axis span { position: absolute; transform: translateX(-50%); }
 
 .stints { display: grid; gap: 8px; margin: 8px 0; }

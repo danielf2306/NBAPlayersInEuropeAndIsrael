@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computePath, effectivePath, cameToIsrael, isChecked, draftStats, mergeState,
-  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL,
+  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags,
 } from '../js/model.js';
 
 // nbaFrom/nbaTo are season end years; stint.season is a start year.
@@ -20,9 +20,28 @@ test('path: Europe before NBA', () => {
   assert.equal(computePath(dirk, a), 'eu_nba');
 });
 
-test('path: NBA then Europe (season the NBA career started counts as after)', () => {
+test('path: NBA then Europe', () => {
   assert.equal(computePath(dirk, { stints: [{ season: 2019, team: 'X', country: 'ספרד' }] }), 'nba_eu');
-  assert.equal(computePath(dirk, { stints: [{ season: 1998, team: 'Lockout', country: 'גרמניה' }] }), 'nba_eu');
+  // the last NBA season itself counts as leaving the NBA
+  assert.equal(computePath(dirk, { stints: [{ season: 2018, team: 'X', country: 'ספרד' }] }), 'nba_eu');
+});
+
+test('path: Europe during the rookie season counts as coming from Europe', () => {
+  assert.equal(computePath(dirk, { stints: [{ season: 1998, team: 'DJK Würzburg', country: 'גרמניה' }] }), 'eu_nba');
+});
+
+test('path: NBA, Europe, back to the NBA (Europe season before the last NBA season)', () => {
+  const jbc = { id: '1980-1', name: 'Joe Barry Carroll', nbaGames: 705, nbaFrom: 1981, nbaTo: 1991, nbaRuns: [[1981, 1984], [1986, 1991]] };
+  const a = { stints: [{ season: 1984, team: 'Simac Milano', country: 'איטליה' }] };
+  assert.equal(computePath(jbc, a), 'nba_eu_nba');
+  assert.equal(stintPhase(jbc, a.stints[0]), 'middle');
+  assert.equal(firstArrivalAfterNba(jbc, a).team, 'Simac Milano');
+  const f = pathFlags('nba_eu_nba');
+  assert.ok(f.nbaToEurope && f.europeToNba && f.europe);
+  // and ending the career in Europe too still counts as "came back to the NBA"
+  assert.equal(computePath(jbc, { stints: [...a.stints, { season: 1991, team: 'X', country: 'יוון' }] }), 'nba_eu_nba');
+  // one-season NBA player who went to Europe the same season: left the NBA
+  assert.equal(computePath({ nbaGames: 5, nbaFrom: 2000, nbaTo: 2000 }, { stints: [{ season: 1999, team: 'X', country: 'יוון' }] }), 'nba_eu');
 });
 
 test('path: back and forth, Israel counts as Europe', () => {
