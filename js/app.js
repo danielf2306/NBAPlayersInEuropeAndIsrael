@@ -4,6 +4,7 @@ import * as sync from './sync.js';
 import { attach as autocomplete } from './autocomplete.js';
 import { $, $$, esc, toast, dialog, download } from './dom.js';
 import { isNative, syncSystemBars } from './native.js';
+import * as wiki from './wiki.js';
 import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUNTRIES } from './nba.js';
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
@@ -395,7 +396,46 @@ function extLinks(p) {
     ['מנהלת הליגה', `https://www.google.com/search?q=${q}+site%3Abasket.co.il`],
     ['גוגל', `https://www.google.com/search?q=${q}+basketball+career+europe`],
   );
-  return links.map(([t, u]) => `<a class="btn small" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('');
+  return `<span id="wiki-links" class="links" style="margin:0">${wikiButtons(p, null)}</span>`
+    + links.map(([t, u]) => `<a class="btn small" href="${u}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join('');
+}
+
+// Wikipedia: a manual link saved on the player wins; otherwise the article found by
+// searching Wikipedia (English, plus Hebrew when that page exists); otherwise a search link.
+function wikiButtons(p, found, pending = false) {
+  const own = store.ann(p)?.wikiUrl;
+  const btn = (label, url, cls = '') => `<a class="btn small ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${label} ↗</a>`;
+  let html;
+  if (own) html = btn('ויקיפדיה', own, 'navy');
+  else if (found) html = btn('ויקיפדיה', found.en.url, 'navy') + (found.he ? btn('ויקיפדיה בעברית', found.he.url, 'navy') : '');
+  else html = btn(pending ? 'ויקיפדיה…' : 'חיפוש בוויקיפדיה', wiki.searchUrl(p.name));
+  return html + `<button type="button" class="btn small icon" id="wiki-edit" title="קישור ויקיפדיה אחר" aria-label="עריכת קישור ויקיפדיה">✎</button>`;
+}
+
+async function renderWiki(p) {
+  const box = $('#wiki-links');
+  if (!box) return;
+  const bind = () => {
+    $('#wiki-edit').onclick = () => {
+      const current = store.ann(p)?.wikiUrl || '';
+      const url = prompt('הדבק קישור לדף הוויקיפדיה של השחקן (ריק = חזרה לחיפוש האוטומטי):', current);
+      if (url === null) return;
+      const clean = url.trim();
+      if (clean && !/^https:\/\/[a-z-]+\.(m\.)?wikipedia\.org\//.test(clean)) return toast('זה לא נראה כמו קישור לוויקיפדיה');
+      store.saveAnn(p, { ...(store.ann(p) || emptyAnnotation()), wikiUrl: clean || undefined });
+      renderWiki(p);
+    };
+  };
+  if (store.ann(p)?.wikiUrl) { box.innerHTML = wikiButtons(p, null); return bind(); }
+  box.innerHTML = wikiButtons(p, null, true);
+  bind();
+  let found = null;
+  try {
+    found = await wiki.lookup(p.bbrefId || p.id, p.name);
+  } catch {
+    // offline or blocked: keep the search link
+  }
+  if (box.isConnected) { box.innerHTML = wikiButtons(p, found); bind(); }
 }
 
 const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_only: '🏀', eu_only: '🇪🇺', none: '—' };
@@ -447,7 +487,8 @@ function viewPlayer(id) {
   const flush = () => {
     clearTimeout(saveTimer);
     pendingSave = null;
-    store.saveAnn(p, work);
+    // The Wikipedia link is edited outside this form; keep whatever is stored.
+    store.saveAnn(p, { ...work, wikiUrl: store.ann(p)?.wikiUrl });
   };
   const save = () => {
     clearTimeout(saveTimer);
@@ -647,6 +688,7 @@ function viewPlayer(id) {
   $('#add-il').onclick = () => addStint('il');
   $('#notes').oninput = (e) => { work.notes = e.target.value; save(); };
   $('#edit-player').onclick = () => playerDialog({ player: p });
+  renderWiki(p);
 }
 
 // ---------------------------------------------------------------- views: stats
@@ -869,15 +911,22 @@ function viewSettings() {
 
   <section class="card">
     <h2>סנכרון בין הטלפון למחשב</h2>
-    <p class="small">הנתונים נשמרים במכשיר. כדי לראות אותם גם בטלפון וגם במחשב, אפשר לסנכרן דרך Gist פרטי בחשבון ה-GitHub שלך:
-    צור <a href="https://github.com/settings/tokens/new?scopes=gist&description=NBA%20Europe%20Israel%20app" target="_blank" rel="noopener">טוקן עם הרשאת gist בלבד ↗</a>, הדבק אותו כאן בכל מכשיר — וזהו. הסנכרון אוטומטי.</p>
+    <p class="small">הנתונים נשמרים בכל מכשיר בנפרד. הסנכרון שומר עותק ב-Gist פרטי בחשבון ה-GitHub שלך, וכל מכשיר שמחובר עם אותו טוקן רואה את אותם נתונים. אחרי החיבור הכל אוטומטי.</p>
+    ${sync.enabled() ? '' : `
+    <ol class="small steps">
+      <li><a href="https://github.com/settings/tokens/new?scopes=gist&description=NBA%20Draft%20Europe%20sync" target="_blank" rel="noopener"><strong>לחץ כאן ליצירת טוקן ב-GitHub ↗</strong></a> (צריך להיות מחובר ל-GitHub).</li>
+      <li>ב-<b>Expiration</b> בחר <b>No expiration</b>. התיבה <b>gist</b> כבר מסומנת — לא לסמן שום דבר אחר.</li>
+      <li>גלול למטה ולחץ <b>Generate token</b>, ואז העתק את הטוקן (מתחיל ב-<span class="kbd ltr">ghp_</span>). <b>שמור אותו</b> (למשל בהודעה לעצמך) — GitHub מציג אותו פעם אחת בלבד, ותצטרך אותו גם במכשיר השני.</li>
+      <li>הדבק אותו כאן ולחץ <b>התחברות וסנכרון</b>.</li>
+      <li>במכשיר השני (אתר / אפליקציה): הגדרות ← אותו טוקן ← התחברות. הנתונים יתמזגו אוטומטית.</li>
+    </ol>`}
     ${sync.enabled() ? `
       <p>מחובר ✓ · Gist: <span class="ltr kbd">${esc(s.gistId)}</span><br><span class="muted small">סנכרון אחרון: ${s.lastSync ? new Date(s.lastSync).toLocaleString('he-IL') : '—'}</span></p>
       <div class="row"><button class="btn primary" id="sync-now">סנכרן עכשיו</button><button class="btn danger" id="sync-off">ניתוק</button></div>`
     : `
       <div class="form-grid">
         <label class="field wide">טוקן GitHub<input id="tok" type="password" dir="ltr" placeholder="ghp_… / github_pat_…" autocomplete="off"></label>
-        <label class="field wide">Gist ID (לא חובה — יימצא/ייווצר אוטומטית)<input id="gid" dir="ltr"></label>
+        <details class="wide small"><summary class="muted">מתקדם</summary><label class="field" style="margin-top:6px">Gist ID (לא חובה — יימצא או ייווצר אוטומטית)<input id="gid" dir="ltr"></label></details>
       </div>
       <div class="row" style="margin-top:12px"><button class="btn primary" id="sync-on">התחברות וסנכרון</button></div>`}
   </section>

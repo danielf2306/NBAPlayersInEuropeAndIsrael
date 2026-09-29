@@ -1,5 +1,5 @@
 // Offline support: app shell and data are cached; updates are fetched in the background.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `nbaeu-${VERSION}`;
 const SHELL = [
   './',
@@ -20,6 +20,7 @@ const SHELL = [
   'js/autocomplete.js',
   'js/nba.js',
   'js/native.js',
+  'js/wiki.js',
   'data/drafts.json',
   'data/teams-israel.json',
   'data/teams-europe.json',
