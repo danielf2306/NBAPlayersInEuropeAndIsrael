@@ -983,7 +983,7 @@ function viewSettings() {
       <li>במכשיר השני (אתר / אפליקציה): הגדרות ← אותו טוקן ← התחברות. הנתונים יתמזגו אוטומטית.</li>
     </ol>`}
     ${sync.enabled() ? `
-      <p>מחובר ✓ · Gist: <span class="ltr kbd">${esc(s.gistId)}</span><br><span class="muted small">סנכרון אחרון: ${s.lastSync ? new Date(s.lastSync).toLocaleString('he-IL') : '—'}</span></p>
+      <p>מחובר ✓ · Gist: <span class="ltr kbd">${esc(s.gistId)}</span><br><span class="small" id="sync-status">${esc(sync.lastStatus().message)}</span><br><span class="muted small">סנכרון אחרון: ${s.lastSync ? new Date(s.lastSync).toLocaleString('he-IL') : '—'}</span></p>
       <div class="row"><button class="btn primary" id="sync-now">סנכרן עכשיו</button><button class="btn danger" id="sync-off">ניתוק</button></div>`
     : `
       <div class="form-grid">
@@ -1041,7 +1041,7 @@ function viewSettings() {
   </section>`;
 
   if (sync.enabled()) {
-    $('#sync-now').onclick = () => sync.syncNow().then(viewSettings);
+    $('#sync-now').onclick = () => sync.syncNow({ force: true }).then(viewSettings);
     $('#sync-off').onclick = () => { if (confirm('לנתק את הסנכרון? הנתונים יישארו במכשיר.')) { sync.disconnect(); viewSettings(); } };
   } else {
     $('#sync-on').onclick = async () => {
@@ -1153,8 +1153,19 @@ async function main() {
   sync.onStatus(({ state, message }) => {
     badge.hidden = state === 'off' || state === 'idle';
     badge.dataset.state = state;
-    badge.textContent = state === 'ok' ? '☁ מסונכרן' : state === 'error' ? '☁ שגיאת סנכרון' : '☁ מסנכרן…';
+    badge.textContent = { ok: '☁ מסונכרן', error: '☁ שגיאת סנכרון', pending: '☁ ממתין…' }[state] || '☁ מסנכרן…';
     badge.title = message;
+    const line = $('#sync-status');
+    if (line) line.textContent = message;
+  });
+  // Tap the badge to see what's going on (and retry after an error).
+  badge.setAttribute('role', 'button');
+  badge.tabIndex = 0;
+  badge.style.cursor = 'pointer';
+  badge.addEventListener('click', () => {
+    const { state, message } = sync.lastStatus();
+    toast(message || 'מסונכרן');
+    if (state === 'error') sync.syncNow({ force: true });
   });
   sync.start();
 
