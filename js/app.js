@@ -9,7 +9,7 @@ import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUN
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
   computePath, effectivePath, cameToIsrael, isChecked, playedNba, pathFlags, draftStats,
-  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers,
+  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase,
 } from './model.js';
 
 const app = document.getElementById('app');
@@ -24,6 +24,21 @@ const fmt = (n) => Number(n || 0).toLocaleString('he-IL');
 
 function draftTitle(d) {
   return d.custom ? `${d.year}${d.title ? ` · ${d.title}` : ''}` : `${d.year}`;
+}
+
+/** Seasons (start years) inside the NBA career in which he didn't play in the NBA. */
+function nbaRuns(p) {
+  const runs = p.nbaRuns;
+  // Ignore the bundled runs if the user edited the NBA seasons by hand.
+  if (!runs?.length || runs[0][0] !== p.nbaFrom || runs[runs.length - 1][1] !== p.nbaTo) return null;
+  return runs;
+}
+
+function nbaGaps(p) {
+  const runs = nbaRuns(p) || [];
+  const gaps = [];
+  for (let i = 1; i < runs.length; i++) for (let y = runs[i - 1][1] + 1; y < runs[i][0]; y++) gaps.push(y - 1);
+  return gaps;
 }
 
 function nbaSeasons(p, { isolate = true } = {}) {
@@ -91,7 +106,7 @@ function statTiles(s) {
     { label: 'שיחקו ב-NBA', value: fmt(s.playedNba), sub: `${pct(s.playedNba, s.total)}%`, cls: 't-nba' },
     { label: 'מה-NBA לאירופה', value: fmt(s.nbaToEurope), sub: 'שיחקו ב-NBA ואז באירופה', cls: 't-nbaeu' },
     { label: 'מאירופה ל-NBA', value: fmt(s.europeToNba), sub: 'שיחקו באירופה ואז ב-NBA', cls: 't-eunba' },
-    { label: 'הלוך ושוב', value: fmt(s.backAndForth), sub: 'אירופה, NBA וחזרה (נספרים בשניהם)', cls: 't-both' },
+    { label: 'הלוך ושוב', value: fmt(s.backAndForth), sub: 'חזרו לאירופה או ל-NBA (נספרים בשני הכיוונים)', cls: 't-both' },
     { label: 'שיחקו באירופה', value: fmt(s.europe), sub: `${pct(s.europe, s.total)}% מהנבחרים`, cls: 't-eu' },
     { label: 'הגיעו לישראל', value: fmt(s.israel), sub: `${pct(s.israel, s.total)}% מהנבחרים`, cls: 't-il' },
     { label: 'נבדקו', value: `${pct(s.checked, s.total)}%`, sub: `${s.checked} מתוך ${s.total}`, cls: 't-check' },
@@ -438,12 +453,14 @@ async function renderWiki(p) {
   if (box.isConnected) { box.innerHTML = wikiButtons(p, found); bind(); }
 }
 
-const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_only: '🏀', eu_only: '🇪🇺', none: '—' };
+const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_eu_nba: '↩️', nba_only: '🏀', eu_only: '🇪🇺', none: '—' };
 
 /** Career timeline: NBA / Europe / Israel lanes on one season axis. */
 function timeline(p, a) {
   const segs = [];
-  if (playedNba(p) && p.nbaFrom) segs.push({ lane: 'nba', from: p.nbaFrom - 1, to: (p.nbaTo || p.nbaFrom) - 1, label: 'NBA' });
+  if (playedNba(p) && p.nbaFrom) {
+    for (const [from, to] of nbaRuns(p) || [[p.nbaFrom, p.nbaTo || p.nbaFrom]]) segs.push({ lane: 'nba', from: from - 1, to: to - 1, label: 'NBA' });
+  }
   for (const st of a.stints || []) {
     if (st.season == null || st.season === '') continue;
     const from = Number(st.season);
@@ -577,12 +594,18 @@ function viewPlayer(id) {
     const computed = computePath(p, work);
     const path = work.path || computed;
     const parts = [];
-    parts.push(playedNba(p) ? `שיחק ב-NBA ${nbaSeasons(p)} (${fmt(p.nbaGames)} משחקים).` : 'לא שיחק ב-NBA.');
-    const after = firstArrivalAfterNba(p, work);
-    const first = firstEuropeArrival(work);
+    const gaps = nbaGaps(p);
+    parts.push(playedNba(p)
+      ? `שיחק ב-NBA ${nbaSeasons(p)} (${fmt(p.nbaGames)} משחקים${gaps.length ? `, ללא ${gaps.length === 1 ? 'עונת' : 'העונות'} ${gaps.map(seasonLabel).join(', ')}` : ''}).`
+      : 'לא שיחק ב-NBA.');
     const describe = (s) => `${s.season != null && s.season !== '' ? `בעונת ${seasonLabel(s.season)} ` : ''}ל${s.team || 'קבוצה לא ידועה'}${s.country ? ` (${s.country})` : ''}`;
-    if (after && path !== 'eu_nba') parts.push(`הגיע לאירופה אחרי ה-NBA ${describe(after)}.`);
-    else if (first) parts.push(`קבוצה ראשונה באירופה: ${describe(first)}.`);
+    const byPhase = (ph) => sortStints(work.stints.filter((s) => stintPhase(p, s) === ph))[0];
+    const [before, middle, after] = ['before', 'middle', 'after'].map(byPhase);
+    if (before) parts.push(`לפני ה-NBA שיחק באירופה: ${describe(before)}.`);
+    if (middle) parts.push(`באמצע הקריירה יצא לאירופה ${describe(middle)} וחזר ל-NBA.`);
+    if (after) parts.push(`אחרי ה-NBA הגיע לאירופה ${describe(after)}.`);
+    const first = firstEuropeArrival(work);
+    if (!before && !middle && !after && first) parts.push(`קבוצה ראשונה באירופה: ${describe(first)}.`);
     if (cameToIsrael(work)) {
       const il = sortStints(israelStints(work));
       parts.push(il.length ? `בישראל: ${il.map((s) => `${s.team || '?'}${s.season != null && s.season !== '' ? ` (${seasonLabel(s.season)})` : ''}`).join(', ')}.` : 'הגיע לישראל.');
