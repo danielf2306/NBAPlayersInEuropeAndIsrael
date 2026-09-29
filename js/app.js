@@ -9,7 +9,7 @@ import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUN
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
   computePath, effectivePath, cameToIsrael, isChecked, playedNba, pathFlags, draftStats,
-  europeStints, israelStints, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase, stintSeasons, israelStatus, israelAuto,
+  europeStints, israelStints, otherStints, stintRegion, OTHER_COUNTRIES, sortStints, firstArrivalAfterNba, firstEuropeArrival, parsePastedPlayers, stintPhase, stintSeasons, israelStatus, israelAuto,
 } from './model.js';
 
 const app = document.getElementById('app');
@@ -107,6 +107,7 @@ function statTiles(s) {
     { label: 'מה-NBA לאירופה', value: fmt(s.nbaToEurope), sub: 'שיחקו ב-NBA ואז באירופה', cls: 't-nbaeu' },
     { label: 'מאירופה ל-NBA', value: fmt(s.europeToNba), sub: 'שיחקו באירופה ואז ב-NBA', cls: 't-eunba' },
     { label: 'הלוך ושוב', value: fmt(s.backAndForth), sub: 'חזרו לאירופה או ל-NBA (נספרים בשני הכיוונים)', cls: 't-both' },
+    { label: 'מה-NBA, לא לאירופה', value: fmt(s.nbaOther), sub: 'סין, אוסטרליה, דרום אמריקה…', cls: 't-other' },
     { label: 'שיחקו באירופה', value: fmt(s.europe), sub: `${pct(s.europe, s.total)}% מהנבחרים`, cls: 't-eu' },
     { label: 'הגיעו לישראל', value: fmt(s.israel), sub: `${pct(s.israel, s.total)}% מהנבחרים`, cls: 't-il' },
     { label: 'נבדקו', value: `${pct(s.checked, s.total)}%`, sub: `${s.checked} מתוך ${s.total}`, cls: 't-check' },
@@ -228,6 +229,7 @@ const FILTERS = [
   ['eu_nba', 'מאירופה ל-NBA', (p, a) => pathFlags(effectivePath(p, a)).europeToNba],
   ['europe', 'שיחקו באירופה', (p, a) => pathFlags(effectivePath(p, a)).europe],
   ['israel', 'בישראל', (p, a) => cameToIsrael(a)],
+  ['nba_other', 'מ-NBA לא לאירופה', (p, a) => effectivePath(p, a) === 'nba_other'],
   ['intl', 'ללא קולג׳', (p) => !p.college],
 ];
 
@@ -277,6 +279,7 @@ function viewDraft(id) {
       <div>
         <h3>מדינות באירופה</h3>
         ${bars(s.europeCountries, { empty: 'עוד לא הוזנו קבוצות באירופה', flags: true })}
+        ${s.otherCountries.length ? `<h3 style="margin-top:14px">מחוץ לאירופה</h3>${bars(s.otherCountries, { flags: true })}` : ''}
       </div>
       <div>
         <h3>עונת הגעה לאירופה (אחרי ה-NBA)</h3>
@@ -473,7 +476,7 @@ async function renderWiki(p) {
   if (box.isConnected) { box.innerHTML = wikiButtons(p, found); bind(); }
 }
 
-const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_eu_nba: '↩️', nba_only: '🏀', eu_only: '🇪🇺', none: '—' };
+const PATH_ICONS = { nba_eu: '✈️', eu_nba: '🇺🇸', eu_nba_eu: '🔁', nba_eu_nba: '↩️', nba_only: '🏀', nba_other: '🌏', eu_only: '🇪🇺', none: '—' };
 
 /** Career timeline: NBA / Europe / Israel lanes on one season axis. */
 function timeline(p, a) {
@@ -485,14 +488,14 @@ function timeline(p, a) {
     if (st.season == null || st.season === '') continue;
     const from = Number(st.season);
     const to = st.until != null && st.until !== '' ? Math.max(from, Number(st.until)) : from;
-    segs.push({ lane: st.country === ISRAEL ? 'il' : 'eu', from, to, label: st.team || '?', title: `${st.team || ''} ${seasonLabel(from)}${to > from ? `–${seasonLabel(to)}` : ''}` });
+    segs.push({ lane: stintRegion(st), from, to, label: st.team || '?', title: `${st.team || ''} ${seasonLabel(from)}${to > from ? `–${seasonLabel(to)}` : ''}` });
   }
   if (!segs.length) return '';
   const min = Math.min(...segs.map((x) => x.from));
   const max = Math.max(...segs.map((x) => x.to)) + 1;
   const span = Math.max(max - min, 1);
   const pos = (y) => ((y - min) / span) * 100;
-  const lanes = [['nba', 'NBA'], ['eu', 'אירופה'], ['il', 'ישראל']].filter(([k]) => segs.some((x) => x.lane === k));
+  const lanes = [['nba', 'NBA'], ['eu', 'אירופה'], ['il', 'ישראל'], ['other', 'לא אירופה']].filter(([k]) => segs.some((x) => x.lane === k));
   const step = span > 16 ? 5 : span > 6 ? 2 : 1;
   const ticks = [];
   for (let y = Math.ceil(min / step) * step; y <= max; y += step) ticks.push(y);
@@ -577,7 +580,7 @@ function viewPlayer(id) {
       <button type="button" data-path=""><span class="ic">✨</span>אוטומטי</button>
       ${Object.entries(PATHS).map(([k, v]) => `<button type="button" data-path="${k}" title="${esc(v.desc)}"><span class="ic">${PATH_ICONS[k]}</span>${esc(v.label)}</button>`).join('')}
     </div>
-    <p class="hint">״אוטומטי״ מחשב את המסלול לפי עונות ה-NBA ועונות הקבוצות שהזנת (ישראל נחשבת לאירופה). שחקן שבדקת ולא שיחק באירופה — סמן ״NBA בלבד״.</p>
+    <p class="hint">״אוטומטי״ מחשב את המסלול לפי עונות ה-NBA ועונות הקבוצות שהזנת (ישראל נחשבת לאירופה). שחקן שבדקת ולא שיחק מחוץ ל-NBA — סמן ״NBA בלבד״; שחקן שהלך מה-NBA רק לסין, אוסטרליה וכו׳ — הוסף אותו ב״מחוץ לאירופה״.</p>
   </section>
 
   <section class="card">
@@ -585,6 +588,13 @@ function viewPlayer(id) {
     <div class="stints" id="eu-stints"></div>
     <button class="btn" id="add-eu" type="button">+ הוספת קבוצה באירופה</button>
     <p class="hint">עונה אחת: בוחרים רק ״מעונה״. כמה עונות ברצף באותה קבוצה: בוחרים גם ״עד עונה״.</p>
+  </section>
+
+  <section class="card other-card">
+    <h2>מחוץ לאירופה 🌏</h2>
+    <p class="hint" style="margin:0 0 8px">סין, אוסטרליה, יפן, הפיליפינים, פורטו ריקו, דרום אמריקה, ליגות משנה בארה״ב… שחקן שעזב את ה-NBA רק לכאן יסומן ״מה-NBA, לא לאירופה״.</p>
+    <div class="stints" id="other-stints"></div>
+    <button class="btn" id="add-other" type="button">+ הוספת קבוצה מחוץ לאירופה</button>
   </section>
 
   <section class="card il-card">
@@ -622,13 +632,15 @@ function viewPlayer(id) {
       ? `שיחק ב-NBA ${nbaSeasons(p)} (${fmt(p.nbaGames)} משחקים${gaps.length ? `, ללא ${gaps.length === 1 ? 'עונת' : 'העונות'} ${gaps.map(seasonLabel).join(', ')}` : ''}).`
       : 'לא שיחק ב-NBA.');
     const describe = (s) => `${s.season != null && s.season !== '' ? `${s.until > s.season ? 'בעונות' : 'בעונת'} \u2066${stintSeasons(s)}\u2069 ` : ''}ל${s.team || 'קבוצה לא ידועה'}${s.country ? ` (${s.country})` : ''}`;
-    const byPhase = (ph) => sortStints(work.stints.filter((s) => stintPhase(p, s) === ph))[0];
+    const byPhase = (ph) => sortStints(work.stints.filter((s) => stintRegion(s) !== 'other' && stintPhase(p, s) === ph))[0];
     const [before, middle, after] = ['before', 'middle', 'after'].map(byPhase);
     if (before) parts.push(`לפני ה-NBA שיחק באירופה: ${describe(before)}.`);
     if (middle) parts.push(`באמצע הקריירה יצא לאירופה ${describe(middle)} וחזר ל-NBA.`);
     if (after) parts.push(`אחרי ה-NBA הגיע לאירופה ${describe(after)}.`);
     const first = firstEuropeArrival(work);
     if (!before && !middle && !after && first) parts.push(`קבוצה ראשונה באירופה: ${describe(first)}.`);
+    const outside = sortStints(otherStints(work));
+    if (outside.length) parts.push(`מחוץ לאירופה: ${outside.map((s) => `${s.team || '?'}${s.country ? ` (${s.country})` : ''}${stintSeasons(s) ? ` \u2066${stintSeasons(s)}\u2069` : ''}`).join(', ')}.`);
     if (cameToIsrael(work)) {
       const il = sortStints(israelStints(work));
       parts.push(il.length ? `בישראל: ${il.map((s) => `${s.team || '?'}${s.season != null && s.season !== '' ? ` (\u2066${stintSeasons(s)}\u2069)` : ''}`).join(', ')}.` : 'הגיע לישראל.');
@@ -644,9 +656,9 @@ function viewPlayer(id) {
   }
 
   function stintEditor(container, kind) {
-    const list = work.stints.filter((s) => (kind === 'il' ? s.country === ISRAEL : s.country !== ISRAEL));
+    const list = work.stints.filter((s) => stintRegion(s) === kind);
     if (!list.length) {
-      container.innerHTML = `<p class="muted small">${kind === 'il' ? 'לא הוזנו קבוצות בישראל' : 'לא הוזנו קבוצות באירופה'}</p>`;
+      container.innerHTML = `<p class="muted small">${{ il: 'לא הוזנו קבוצות בישראל', eu: 'לא הוזנו קבוצות באירופה', other: 'לא הוזנו קבוצות מחוץ לאירופה' }[kind]}</p>`;
       return;
     }
     const untilSelect = (s) => seasonSelect('until', s.until, { placeholder: 'עונה אחת בלבד', min: s.season != null && s.season !== '' ? Number(s.season) + 1 : null });
@@ -657,7 +669,7 @@ function viewPlayer(id) {
           <span class="dash" aria-hidden="true">–</span>
           <label class="field">עד עונה${untilSelect(s)}</label>
         </div>
-        <label class="field">קבוצה<input name="team" value="${esc(s.team)}" placeholder="${kind === 'il' ? 'התחל להקליד, למשל: הפועל…' : 'Start typing, e.g. Real…'}" dir="auto"></label>
+        <label class="field">קבוצה<input name="team" value="${esc(s.team)}" placeholder="${{ il: 'התחל להקליד, למשל: הפועל…', eu: 'Start typing, e.g. Real…', other: 'Start typing, e.g. Beijing…' }[kind]}" dir="auto"></label>
         ${kind === 'il'
           ? `<label class="field">ליגה<select name="league"><option value="">—</option>${Object.entries(ISRAEL_LEAGUES).map(([k, l]) => `<option value="${k}" ${s.league === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`
           : `<label class="field">מדינה<input name="country" value="${esc(s.country)}" dir="auto"></label>`}
@@ -682,7 +694,7 @@ function viewPlayer(id) {
       const team = row.querySelector('[name=team]');
       team.oninput = () => { s.team = team.value.trim(); save(); };
       autocomplete(team, {
-        source: (q) => teams.search(q, kind === 'il' ? 'israel' : 'europe'),
+        source: (q) => teams.search(q, { il: 'israel', eu: 'europe', other: 'other' }[kind]),
         onSelect: (it) => {
           s.team = it.name;
           if (kind === 'il') {
@@ -701,7 +713,7 @@ function viewPlayer(id) {
         const c = row.querySelector('[name=country]');
         c.oninput = () => { s.country = c.value.trim(); save(); };
         autocomplete(c, {
-          source: (q) => COUNTRIES.filter((x) => x !== ISRAEL && normalize(x).includes(normalize(q))).map((x) => ({ name: x, meta: flag(x) })),
+          source: (q) => (kind === 'other' ? OTHER_COUNTRIES : COUNTRIES).filter((x) => x !== ISRAEL && normalize(x).includes(normalize(q))).map((x) => ({ name: x, meta: flag(x) })),
           onSelect: (it) => { s.country = it.name; save(); },
         });
       }
@@ -716,17 +728,22 @@ function viewPlayer(id) {
   function renderStints() {
     stintEditor($('#eu-stints'), 'eu');
     stintEditor($('#il-stints'), 'il');
+    stintEditor($('#other-stints'), 'other');
     renderSummary();
   }
 
   function addStint(kind) {
     const lastSeason = sortStints(work.stints).filter((s) => s.season != null && s.season !== '').pop()?.season;
     const guess = lastSeason != null ? Number(lastSeason) + 1 : p.nbaTo || null;
-    work.stints.push(kind === 'il' ? { season: guess, team: '', country: ISRAEL, league: '' } : { season: guess, team: '', country: '' });
+    work.stints.push(
+      kind === 'il' ? { season: guess, team: '', country: ISRAEL, league: '' }
+      : kind === 'other' ? { season: guess, team: '', country: '', region: 'other' }
+      : { season: guess, team: '', country: '', region: 'eu' },
+    );
     if (kind === 'il') work.israel = true;
     save();
     renderStints();
-    const rows = $$(kind === 'il' ? '#il-stints .stint' : '#eu-stints .stint');
+    const rows = $$(`#${kind}-stints .stint`);
     rows[rows.length - 1]?.querySelector('[name=team]').focus();
   }
 
@@ -744,6 +761,7 @@ function viewPlayer(id) {
     if (v === 'yes' && !israelStints(work).length) addStint('il');
   }));
   $('#add-eu').onclick = () => addStint('eu');
+  $('#add-other').onclick = () => addStint('other');
   $('#add-il').onclick = () => addStint('il');
   $('#notes').oninput = (e) => { work.notes = e.target.value; save(); };
   $('#edit-player').onclick = () => playerDialog({ player: p });
@@ -820,6 +838,7 @@ function viewStats() {
   <div class="grid-2">
     <section class="card"><h2>קבוצות בישראל</h2>${bars(all.israelTeams, { limit: 15, empty: 'עוד לא סומנו שחקנים בישראל' })}</section>
     <section class="card"><h2>מדינות באירופה</h2>${bars(all.europeCountries, { limit: 15, empty: 'עוד לא הוזנו קבוצות באירופה', flags: true })}</section>
+    <section class="card"><h2>מחוץ לאירופה</h2>${bars(all.otherCountries, { limit: 15, empty: 'עוד לא הוזנו קבוצות מחוץ לאירופה', flags: true })}</section>
     <section class="card"><h2>קבוצות באירופה</h2>${bars(all.europeTeams, { limit: 15, empty: 'עוד לא הוזנו קבוצות באירופה' })}</section>
     <section class="card"><h2>עונת הגעה לאירופה (אחרי NBA)</h2>${bars(all.arrivalSeasons, { limit: 15 })}</section>
   </div>
@@ -944,7 +963,7 @@ function viewSearch(params) {
 const APK_URL = 'https://github.com/danielf2306/NBAPlayersInEuropeAndIsrael/releases/latest/download/nba-draft-europe.apk';
 
 function csvExport() {
-  const head = ['draft', 'pick', 'round', 'name', 'nba_team', 'college', 'nba_games', 'nba_seasons', 'path', 'europe_first_season', 'europe_first_team', 'europe_teams', 'israel', 'israel_teams', 'notes'];
+  const head = ['draft', 'pick', 'round', 'name', 'nba_team', 'college', 'nba_games', 'nba_seasons', 'path', 'europe_first_season', 'europe_first_team', 'europe_teams', 'israel', 'israel_teams', 'outside_europe_teams', 'notes'];
   const lines = [head.join(',')];
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   for (const p of store.allPlayers().sort((a, b) => a.year - b.year || (a.pick ?? 1e6) - (b.pick ?? 1e6))) {
@@ -957,6 +976,7 @@ function csvExport() {
       sortStints(europeStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team} (${s.country})`).join('; '),
       { yes: 'כן', no: 'לא', '': '' }[israelStatus(p, a)],
       sortStints(israelStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team}${s.league ? ` (${ISRAEL_LEAGUES[s.league]})` : ''}`).join('; '),
+      sortStints(otherStints(a)).map((s) => `${stintSeasons(s) ? stintSeasons(s) + ' ' : ''}${s.team} (${s.country})`).join('; '),
       a?.notes || '',
     ].map(q).join(','));
   }

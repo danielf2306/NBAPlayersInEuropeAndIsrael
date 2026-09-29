@@ -517,3 +517,13 @@ dialog h2 { font-weight: 900; }
 .hero .switch { background: rgb(0 0 0 / 25%); border-color: rgb(255 255 255 / 20%); color: #fff; }
 .hero .switch .knob { background: rgb(255 255 255 / 20%); border-color: transparent; }
 .hero .switch[aria-checked="true"] .knob { background: var(--ball); }
+
+/* outside Europe (China, Australia, the Americas…) */
+.other-card { border-top: 4px solid #0f9d8a; }
+.other-card > h2:first-child::before { background: radial-gradient(circle at 35% 35%, #7fe3d2, #0f9d8a 65%); }
+#other-stints .stint { border-inline-start-color: #0f9d8a; }
+.tl-seg.other { background: linear-gradient(90deg, #0b7f70, #2cc4ab); }
+.tile.t-other { --tile: #0f9d8a; }
+.badge.nba_other { background: #d3f5ee; color: #0b6b5e; }
+:root[data-theme="dark"] .badge.nba_other { background: #103d36; color: #7fe3d2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .badge.nba_other { background: #103d36; color: #7fe3d2; } }
