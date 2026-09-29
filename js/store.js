@@ -106,8 +106,34 @@ export function draft(id) {
   return build().drafts.get(String(id)) || null;
 }
 
+// "Hide deep picks": round 3+ picks who never played an NBA game (mostly the long
+// 1980s drafts). A per-device display preference that every list and stat respects.
+const HIDE_KEY = 'nbaeu:hideDeep';
+let hideDeep = (() => { try { return localStorage.getItem(HIDE_KEY) === '1'; } catch { return false; } })();
+
+export function isDeepNoNba(p) {
+  return (p.round ?? 0) >= 3 && !(p.nbaGames > 0);
+}
+
+const shown = (p) => !(hideDeep && isDeepNoNba(p));
+
+export function hidingDeep() {
+  return hideDeep;
+}
+
+export function setHideDeep(on) {
+  hideDeep = Boolean(on);
+  try { localStorage.setItem(HIDE_KEY, hideDeep ? '1' : '0'); } catch { /* ignore */ }
+}
+
+/** How many players the toggle hides (in one draft, or overall). */
+export function deepCount(draftId) {
+  const list = draftId == null ? [...build().players.values()] : build().byDraft.get(String(draftId)) || [];
+  return list.filter(isDeepNoNba).length;
+}
+
 export function draftPlayers(id) {
-  return build().byDraft.get(String(id)) || [];
+  return (build().byDraft.get(String(id)) || []).filter(shown);
 }
 
 export function player(id) {
@@ -115,7 +141,7 @@ export function player(id) {
 }
 
 export function allPlayers() {
-  return [...build().players.values()];
+  return [...build().players.values()].filter(shown);
 }
 
 export function ann(p) {
