@@ -503,3 +503,5 @@ dialog h2 { font-weight: 900; }
 }
 .tiles { grid-template-columns: repeat(2, 1fr); }
 @media (min-width: 620px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+.steps { margin: 8px 0 14px; padding-inline-start: 22px; display: grid; gap: 6px; }
+.steps li::marker { color: var(--hot); font-weight: 800; }
