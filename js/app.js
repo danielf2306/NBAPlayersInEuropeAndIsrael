@@ -113,6 +113,24 @@ function statTiles(s) {
   ]);
 }
 
+/** Switch: hide round 3+ picks who never played in the NBA. */
+function deepToggle(draftId) {
+  const n = store.deepCount(draftId);
+  if (!n) return '';
+  const on = store.hidingDeep();
+  return `<button type="button" class="switch" data-deep-toggle role="switch" aria-checked="${on}">
+    <span class="knob" aria-hidden="true"></span>
+    <span>הסתר נבחרי סיבוב \u20663+\u2069 שלא שיחקו ב-NBA <span class="n">(${fmt(n)})</span></span>
+  </button>`;
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-deep-toggle]')) return;
+  store.setHideDeep(!store.hidingDeep());
+  toast(store.hidingDeep() ? 'נבחרי סיבוב \u20663+\u2069 שלא שיחקו ב-NBA מוסתרים' : 'כל הנבחרים מוצגים');
+  route();
+});
+
 function setNav(name) {
   $$('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === name));
 }
@@ -163,6 +181,7 @@ function viewDrafts() {
       <div class="score"><div class="v">${fmt(total.checked)}</div><div class="l">שחקנים נבדקו</div></div>
     </div>
     <div class="row" style="margin-top:14px"><button class="btn primary" id="add-draft">+ דראפט ידני</button><a class="btn" href="#/stats">לסטטיסטיקה</a></div>
+    <div style="margin-top:12px">${deepToggle()}</div>
   </section>`;
   for (const [dec, ds] of byDecade) {
     const [name, sub] = ERAS[dec] || ['', ''];
@@ -267,6 +286,7 @@ function viewDraft(id) {
   </details>
 
   <section class="card">
+    ${deepToggle(id) ? `<div style="margin-bottom:10px">${deepToggle(id)}</div>` : ''}
     <div class="searchbar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="dq" type="search" placeholder="חיפוש שחקן בדראפט…" value="${esc(q)}"></div>
     <div class="chips" role="toolbar" aria-label="סינון">
       ${FILTERS.map(([k, label, fn]) => `<button class="chip" data-f="${k}" aria-pressed="${filter === k}"><bdi>${label}</bdi><span class="n"><bdi>${rows.filter((r) => fn(r.player, r.ann)).length}</bdi></span></button>`).join('')}
@@ -788,6 +808,7 @@ function viewStats() {
       <div class="score"><div class="v">${fmt(all.backAndForth)}</div><div class="l">הלוך ושוב</div></div>
       <div class="score il"><div class="v">${fmt(all.israel)}</div><div class="l">🇮🇱 בישראל</div></div>
     </div>
+    <div style="margin-top:12px">${deepToggle()}</div>
   </section>
   <section class="card"><h2>הנתונים המלאים</h2>${statTiles(all)}</section>
   <section class="card">
@@ -870,6 +891,7 @@ function viewIsrael() {
       <div class="score il"><div class="v">${count}</div><div class="l">שחקנים</div></div>
       <div class="score il"><div class="v">${byTeam.size}</div><div class="l">קבוצות</div></div>
     </div>
+    <div style="margin-top:12px">${deepToggle()}</div>
   </section>
   ${teamsSorted.length ? `<div class="grid-2 israel-list">${teamsSorted.map(([team, list]) => {
     const info = teams.findIsraeli(team);
@@ -887,6 +909,7 @@ function viewSearch(params) {
   app.innerHTML = `
   <div class="page-head"><h1>חיפוש שחקנים</h1></div>
   <div class="searchbar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="q" type="search" placeholder="שם שחקן, מכללה או קבוצה (בכל הדראפטים)" value="${esc(q)}" autofocus></div>
+  <div style="margin-bottom:10px">${deepToggle()}</div>
   <div class="chips" style="margin-bottom:12px">${FILTERS.map(([k, label]) => `<button class="chip" data-f="${k}" aria-pressed="${f === k}">${label}</button>`).join('')}</div>
   <section class="card"><ul class="plist" id="results"></ul></section>`;
   const all = store.allPlayers().map((p) => ({ p, key: normalize(`${p.name} ${p.college || ''}`) }));
