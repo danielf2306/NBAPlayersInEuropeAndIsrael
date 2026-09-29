@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      APP_VERSION_CODE: ${{ github.run_number }}
+      APP_VERSION_NAME: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+
+      - name: Copy the web app into the Android project
+        run: npm run android:sync
+
+      - name: Build signed APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../nba-draft-europe.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nba-draft-europe-${{ env.APP_VERSION_NAME }}
+          path: nba-draft-europe.apk
+
+      - name: Publish release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ env.APP_VERSION_NAME }}
+          name: אפליקציית אנדרואיד ${{ env.APP_VERSION_NAME }}
+          body: |
+            להתקנה: הורידו את `nba-draft-europe.apk` בטלפון, פתחו אותו ואשרו התקנה ממקורות לא ידועים.
+            גרסה חדשה מותקנת מעל הקודמת והנתונים נשמרים.
+          files: nba-draft-europe.apk
+          make_latest: true

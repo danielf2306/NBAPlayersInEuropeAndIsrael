@@ -3,6 +3,7 @@ import * as teams from './teams.js';
 import * as sync from './sync.js';
 import { attach as autocomplete } from './autocomplete.js';
 import { $, $$, esc, toast, dialog, download } from './dom.js';
+import { isNative, syncSystemBars } from './native.js';
 import { teamChip, teamColors, flag, eraClass, jersey, BALL_SVG, COURT_SVG, COUNTRIES } from './nba.js';
 import {
   ISRAEL, ISRAEL_LEAGUES, PATHS, normalize, seasonLabel, seasonOptions, emptyAnnotation,
@@ -836,6 +837,8 @@ function viewSearch(params) {
 
 // ---------------------------------------------------------------- views: settings
 
+const APK_URL = 'https://github.com/danielf2306/NBAPlayersInEuropeAndIsrael/releases/latest/download/nba-draft-europe.apk';
+
 function csvExport() {
   const head = ['draft', 'pick', 'round', 'name', 'nba_team', 'college', 'nba_games', 'nba_seasons', 'path', 'europe_first_season', 'europe_first_team', 'europe_teams', 'israel', 'israel_teams', 'notes'];
   const lines = [head.join(',')];
@@ -853,7 +856,7 @@ function csvExport() {
       a?.notes || '',
     ].map(q).join(','));
   }
-  download(`nba-drafts-europe-israel-${new Date().toISOString().slice(0, 10)}.csv`, '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
+  return download(`nba-drafts-europe-israel-${new Date().toISOString().slice(0, 10)}.csv`, '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
 }
 
 function viewSettings() {
@@ -899,13 +902,21 @@ function viewSettings() {
     </div>
   </section>
 
+  ${isNative() ? `
+  <section class="card">
+    <h2>אפליקציית אנדרואיד</h2>
+    <p class="small">הנתונים נשמרים בטלפון. <strong>הסרת האפליקציה מוחקת אותם</strong> — הפעל סנכרון או ייצא גיבוי מדי פעם.<br>
+    גרסה חדשה: הורד את קובץ ה-APK העדכני והתקן מעל הקיים — הנתונים נשמרים.</p>
+    <a class="btn" href="${APK_URL}" target="_blank" rel="noopener">הורדת הגרסה האחרונה ↗</a>
+  </section>` : `
   <section class="card">
     <h2>התקנה כאפליקציה בטלפון</h2>
-    <p class="small"><strong>אייפון:</strong> פתח את האתר ב-Safari ← כפתור השיתוף ← ״הוסף למסך הבית״.<br>
-    <strong>אנדרואיד:</strong> פתח ב-Chrome ← תפריט ⋮ ← ״התקנת אפליקציה״ / ״הוספה למסך הבית״.<br>
+    <p class="small"><strong>אנדרואיד — אפליקציה (APK):</strong> הורד את הקובץ, פתח אותו ואשר ״התקנה ממקורות לא ידועים״.<br>
+    <strong>אייפון:</strong> פתח את האתר ב-Safari ← כפתור השיתוף ← ״הוסף למסך הבית״.<br>
+    <strong>אנדרואיד בלי APK:</strong> פתח ב-Chrome ← תפריט ⋮ ← ״התקנת אפליקציה״.<br>
     האפליקציה עובדת גם בלי אינטרנט.</p>
-    ${installPrompt ? '<button class="btn primary" id="install">התקנה עכשיו</button>' : ''}
-  </section>
+    <div class="row"><a class="btn primary" href="${APK_URL}">הורדת APK לאנדרואיד</a>${installPrompt ? '<button class="btn" id="install">התקנה מהדפדפן</button>' : ''}</div>
+  </section>`}
 
   <section class="card">
     <h2>מקורות</h2>
@@ -934,8 +945,9 @@ function viewSettings() {
       route();
     };
   }
-  $('#export-json').onclick = () => download(`nba-europe-israel-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(store.snapshot(), null, 1));
-  $('#export-csv').onclick = csvExport;
+  const fail = (e) => toast(`הייצוא נכשל: ${e.message}`);
+  $('#export-json').onclick = () => download(`nba-europe-israel-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(store.snapshot(), null, 1)).catch(fail);
+  $('#export-csv').onclick = () => csvExport().catch(fail);
   $('#import-json').onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -967,6 +979,7 @@ function applyTheme() {
   const t = localStorage.getItem('nbaeu:theme') || 'auto';
   if (t === 'auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.dataset.theme = t;
+  syncSystemBars();
 }
 
 // ---------------------------------------------------------------- router
@@ -1034,7 +1047,8 @@ async function main() {
   });
   sync.start();
 
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // The Android app ships its files inside the APK, so it needs no service worker.
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !isNative()) {
     navigator.serviceWorker.register('sw.js').catch((e) => console.warn('sw', e));
   }
 }
