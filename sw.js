@@ -1,5 +1,5 @@
 // Offline support: app shell and data are cached; updates are fetched in the background.
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = `nbaeu-${VERSION}`;
 const SHELL = [
   './',
@@ -24,6 +24,7 @@ const SHELL = [
   'data/drafts.json',
   'data/teams-israel.json',
   'data/teams-europe.json',
+  'data/teams-other.json',
   'manifest.webmanifest',
   'icons/icon.svg',
   'icons/icon-192.png',

@@ -1,6 +1,6 @@
 // App state: the bundled draft data (read-only) plus the user's own records,
 // persisted in localStorage and optionally synced (see sync.js).
-import { annotationKey, emptyAnnotation, mergeState, SYNCED_MAPS } from './model.js';
+import { annotationKey, emptyAnnotation, mergeState, SYNCED_MAPS, stintRegion } from './model.js';
 
 const KEY = 'nbaeu:data:v1';
 const listeners = new Set();
@@ -157,7 +157,7 @@ export function usedTeams() {
   const m = new Map();
   for (const a of Object.values(state.annotations)) {
     for (const s of a.stints || []) {
-      if (s.team && !m.has(s.team)) m.set(s.team, { he: s.team, country: s.country || '', league: s.league || '' });
+      if (s.team && !m.has(s.team)) m.set(s.team, { he: s.team, country: s.country || '', league: s.league || '', region: stintRegion(s) });
     }
   }
   return [...m.values()];

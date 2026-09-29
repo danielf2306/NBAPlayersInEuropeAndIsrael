@@ -8,6 +8,7 @@ export const PATHS = {
   eu_nba_eu: { label: 'אירופה, NBA וחזרה לאירופה', short: 'הלוך ושוב', desc: 'שיחק באירופה, עבר ל-NBA וחזר לאירופה' },
   nba_eu_nba: { label: 'NBA, אירופה וחזרה ל-NBA', short: 'חזר ל-NBA', desc: 'שיחק ב-NBA, יצא לאירופה וחזר ל-NBA' },
   nba_only: { label: 'NBA בלבד', short: 'NBA בלבד', desc: 'שיחק ב-NBA ולא שיחק באירופה' },
+  nba_other: { label: 'מה-NBA, לא לאירופה', short: 'לא לאירופה', desc: 'שיחק ב-NBA ואחר כך מחוץ לאירופה (סין, אוסטרליה, דרום אמריקה…) — לא באירופה' },
   eu_only: { label: 'אירופה בלבד', short: 'אירופה בלבד', desc: 'לא שיחק ב-NBA, שיחק באירופה' },
   none: { label: 'לא NBA ולא אירופה', short: 'אחר', desc: 'לא שיחק ב-NBA וגם לא באירופה' },
 };
@@ -67,12 +68,36 @@ export function emptyAnnotation() {
   return { path: '', stints: [], israel: null, notes: '', updatedAt: 0 };
 }
 
+// Countries outside Europe (and Israel) where ex-NBA players often went.
+export const OTHER_COUNTRIES = [
+  'סין', 'יפן', 'דרום קוריאה', 'טייוואן', 'הפיליפינים', 'אוסטרליה', 'ניו זילנד', 'פורטו ריקו',
+  'ארגנטינה', 'ברזיל', 'ונצואלה', 'מקסיקו', 'אורוגוואי', "צ'ילה", 'קולומביה', 'הרפובליקה הדומיניקנית',
+  'ארה"ב', 'קנדה', 'לבנון', 'איראן', 'קטאר', 'איחוד האמירויות', 'ירדן', 'בחריין', 'סעודיה', 'כווית',
+  'מצרים', 'תוניסיה', 'אנגולה', 'ניגריה', 'אינדונזיה', 'תאילנד', 'הונג קונג', 'מונגוליה',
+];
+
+/** 'eu' | 'il' | 'other' — stored on stints added in a section, otherwise derived from the country. */
+export function stintRegion(s) {
+  if (s.region) return s.region;
+  if (s.country === ISRAEL) return 'il';
+  return OTHER_COUNTRIES.includes(s.country) ? 'other' : 'eu';
+}
+
 export function europeStints(a) {
-  return (a?.stints || []).filter((s) => s.country !== ISRAEL);
+  return (a?.stints || []).filter((s) => stintRegion(s) === 'eu');
 }
 
 export function israelStints(a) {
-  return (a?.stints || []).filter((s) => s.country === ISRAEL);
+  return (a?.stints || []).filter((s) => stintRegion(s) === 'il');
+}
+
+export function otherStints(a) {
+  return (a?.stints || []).filter((s) => stintRegion(s) === 'other');
+}
+
+/** Europe including Israel — what the NBA/Europe path is about. */
+function europeanStints(a) {
+  return (a?.stints || []).filter((s) => stintRegion(s) !== 'other');
 }
 
 export function sortStints(stints) {
@@ -81,8 +106,8 @@ export function sortStints(stints) {
 
 /** First arrival outside the NBA (Europe incl. Israel), by season. */
 export function firstEuropeArrival(a) {
-  const withSeason = (a?.stints || []).filter((s) => s.season != null && s.season !== '');
-  if (!withSeason.length) return (a?.stints || [])[0] || null;
+  const withSeason = europeanStints(a).filter((s) => s.season != null && s.season !== '');
+  if (!withSeason.length) return europeanStints(a)[0] || null;
   return sortStints(withSeason)[0];
 }
 
@@ -107,7 +132,7 @@ export function stintPhase(p, s) {
 
 /** First arrival in Europe after the NBA career started (mid-career or at its end). */
 export function firstArrivalAfterNba(p, a) {
-  return sortStints((a?.stints || []).filter((s) => ['middle', 'after'].includes(stintPhase(p, s))))[0] || null;
+  return sortStints(europeanStints(a).filter((s) => ['middle', 'after'].includes(stintPhase(p, s))))[0] || null;
 }
 
 export function playedNba(p) {
@@ -120,10 +145,12 @@ export function playedNba(p) {
  * Returns '' when there isn't enough information yet.
  */
 export function computePath(p, a) {
-  const stints = (a?.stints || []).filter(hasSeason);
-  const anyStint = (a?.stints || []).length > 0;
-  if (!playedNba(p)) return anyStint ? 'eu_only' : '';
-  if (!anyStint) return '';
+  const eu = europeanStints(a);
+  const stints = eu.filter(hasSeason);
+  const anyStint = eu.length > 0;
+  const outside = otherStints(a).length > 0;
+  if (!playedNba(p)) return anyStint ? 'eu_only' : outside ? 'none' : '';
+  if (!anyStint) return outside ? 'nba_other' : '';
   if (!stints.length || !p.nbaFrom) return '';
   const phases = new Set(stints.map((s) => stintPhase(p, s)));
   const before = phases.has('before');
@@ -193,12 +220,14 @@ export function draftStats(rows) {
     backAndForth: 0,
     europe: 0,
     nbaOnly: 0,
+    nbaOther: 0,
     europeOnly: 0,
     israel: 0,
     nbaGames: 0,
     byRound: [],
     israelTeams: [],
     europeCountries: [],
+    otherCountries: [],
     europeTeams: [],
     arrivalSeasons: [],
     israelPlayers: [],
@@ -219,6 +248,7 @@ export function draftStats(rows) {
     if (path === 'eu_nba_eu' || path === 'nba_eu_nba') s.backAndForth++;
     if (f.europe) s.europe++;
     if (path === 'nba_only') s.nbaOnly++;
+    if (path === 'nba_other') s.nbaOther++;
     if (path === 'eu_only') s.europeOnly++;
     if (cameToIsrael(a)) { s.israel++; rs.israel++; s.israelPlayers.push(p); }
   }
@@ -226,6 +256,7 @@ export function draftStats(rows) {
   const anns = rows.map((r) => r.ann).filter(Boolean);
   s.israelTeams = countBy(anns, (a) => [...new Set(israelStints(a).map((x) => x.team).filter(Boolean))]);
   s.europeCountries = countBy(anns, (a) => [...new Set(europeStints(a).map((x) => x.country).filter(Boolean))]);
+  s.otherCountries = countBy(anns, (a) => [...new Set(otherStints(a).map((x) => x.country).filter(Boolean))]);
   s.europeTeams = countBy(anns, (a) => [...new Set(europeStints(a).map((x) => x.team).filter(Boolean))]);
   s.arrivalSeasons = countBy(rows, ({ player, ann }) => {
     const st = firstArrivalAfterNba(player, ann);

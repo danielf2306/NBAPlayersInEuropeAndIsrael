@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computePath, effectivePath, cameToIsrael, isChecked, draftStats, mergeState,
-  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons, israelStatus, israelAuto,
+  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons, israelStatus, israelAuto, stintRegion, draftStats as stats2,
 } from '../js/model.js';
 
 // nbaFrom/nbaTo are season end years; stint.season is a start year.
@@ -136,4 +136,23 @@ test('israel status: path set without an Israeli team means "did not come"', () 
   assert.equal(israelAuto(dirk, { ...nbaOnly, israel: false }), false);
   // no path yet and nothing marked → still unchecked
   assert.equal(israelStatus(dirk, { stints: [{ team: 'X', country: 'ספרד' }] }), '');
+});
+
+test('NBA then outside Europe (China, Australia…)', () => {
+  const china = { stints: [{ season: 2019, team: 'Beijing Ducks', country: 'סין', region: 'other' }] };
+  assert.equal(computePath(dirk, china), 'nba_other');
+  assert.equal(israelStatus(dirk, china), 'no');
+  // derived region from the country for older entries without a region
+  assert.equal(stintRegion({ country: 'אוסטרליה' }), 'other');
+  assert.equal(stintRegion({ country: 'ספרד' }), 'eu');
+  assert.equal(stintRegion({ country: ISRAEL }), 'il');
+  // Europe wins when he played in both
+  const both = { stints: [...china.stints, { season: 2020, team: 'Real Madrid', country: 'ספרד' }] };
+  assert.equal(computePath(dirk, both), 'nba_eu');
+  // no NBA, only outside Europe
+  assert.equal(computePath(bust, china), 'none');
+  const s = stats2([{ player: dirk, ann: china }]);
+  assert.equal(s.nbaOther, 1);
+  assert.equal(s.nbaToEurope, 0);
+  assert.deepEqual(s.otherCountries, [['סין', 1]]);
 });
