@@ -64,7 +64,10 @@ function score(t, q) {
 /** scope: 'israel' | 'europe' | 'other' */
 export function search(query, scope, limit = 40) {
   const q = normalize(query);
-  const pool = [...userTeams(scope), ...{ israel, europe, other }[scope]];
+  // Israeli clubs are offered in the Europe section too; picking one moves the row to Israel.
+  // Skip the text being typed right now (it's saved as you type, so it shows up as a "used" team).
+  const mine = userTeams(scope).filter((t) => normalize(t.name) !== q);
+  const pool = [...mine, ...{ israel, europe: [...europe, ...israel], other }[scope]];
   if (!q) return pool.slice(0, limit);
   return pool
     .map((t, i) => ({ t, s: score(t, q), i }))
@@ -76,6 +79,13 @@ export function search(query, scope, limit = 40) {
 
 export function findIsraeli(name) {
   return israel.find((t) => t.name === name) || null;
+}
+
+/** Match an Israeli club by its Hebrew or English name ("Hapoel Holon" → הפועל חולון). */
+export function matchIsraeli(name) {
+  const n = normalize(name);
+  if (!n) return null;
+  return israel.find((t) => normalize(t.name) === n || normalize(t.alt) === n) || null;
 }
 
 export function findEuropean(name) {
