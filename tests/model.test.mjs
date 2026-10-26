@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computePath, effectivePath, cameToIsrael, isChecked, draftStats, mergeState,
-  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons, israelStatus, israelAuto, stintRegion, draftStats as stats2,
+  parsePastedPlayers, normalize, seasonLabel, firstArrivalAfterNba, ISRAEL, stintPhase, pathFlags, stintSeasons, israelStatus, israelAuto, stintRegion, draftStats as stats2, cameToIsrael as cameIL,
 } from '../js/model.js';
 
 // nbaFrom/nbaTo are season end years; stint.season is a start year.
@@ -155,4 +155,13 @@ test('NBA then outside Europe (China, Australia…)', () => {
   assert.equal(s.nbaOther, 1);
   assert.equal(s.nbaToEurope, 0);
   assert.deepEqual(s.otherCountries, [['סין', 1]]);
+});
+
+test('country Israel wins over the section a team was added in', () => {
+  const a = { stints: [{ season: 1984, team: 'Hapoel Holon', country: 'ישראל', region: 'eu' }] };
+  assert.equal(stintRegion(a.stints[0]), 'il');
+  assert.equal(cameIL(a), true);
+  assert.equal(stintRegion({ country: 'Israel', region: 'eu' }), 'il');
+  assert.equal(stintRegion({ country: 'סין', region: 'eu' }), 'other');
+  assert.equal(stintRegion({ country: 'ספרד', region: 'eu' }), 'eu');
 });

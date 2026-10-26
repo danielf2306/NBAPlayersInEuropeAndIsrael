@@ -78,9 +78,18 @@ export const OTHER_COUNTRIES = [
 
 /** 'eu' | 'il' | 'other' — stored on stints added in a section, otherwise derived from the country. */
 export function stintRegion(s) {
-  if (s.region) return s.region;
-  if (s.country === ISRAEL) return 'il';
-  return OTHER_COUNTRIES.includes(s.country) ? 'other' : 'eu';
+  // The country decides when it says Israel or a non-European country, whatever
+  // section the team was added in (e.g. Hapoel Holon typed under "Europe").
+  const country = normalizeCountry(s.country);
+  if (country === ISRAEL) return 'il';
+  if (OTHER_COUNTRIES.includes(country)) return 'other';
+  return s.region || 'eu';
+}
+
+/** "Israel" / "ישראל " → "ישראל". */
+export function normalizeCountry(c) {
+  const t = String(c ?? '').trim();
+  return /^(israel|isr|ישראל)$/i.test(t) ? ISRAEL : t;
 }
 
 export function europeStints(a) {

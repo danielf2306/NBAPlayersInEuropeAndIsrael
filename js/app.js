@@ -697,6 +697,15 @@ function viewPlayer(id) {
         source: (q) => teams.search(q, { il: 'israel', eu: 'europe', other: 'other' }[kind]),
         onSelect: (it) => {
           s.team = it.name;
+          if (kind !== 'il' && it.country === ISRAEL) {
+            // An Israeli club picked in another section: move it to Israel.
+            Object.assign(s, { country: ISRAEL, region: 'il', league: ISRAEL_LEAGUES[it.league] ? it.league : '' });
+            work.israel = true;
+            save();
+            renderStints();
+            toast('קבוצה ישראלית — הועברה לחלק של ישראל');
+            return;
+          }
           if (kind === 'il') {
             if (it.league && ISRAEL_LEAGUES[it.league]) { s.league = it.league; row.querySelector('[name=league]').value = it.league; }
           } else if (it.country) {
@@ -711,10 +720,28 @@ function viewPlayer(id) {
         lg.onchange = () => { s.league = lg.value; save(); };
       } else {
         const c = row.querySelector('[name=country]');
+        // When the country puts the team in another section (Israel, or outside/inside Europe), move it there.
+        const relocate = () => {
+          const now = stintRegion(s);
+          if (now === kind) return;
+          if (now === 'il') {
+            s.country = ISRAEL;
+            s.region = 'il';
+            work.israel = true;
+            const club = teams.matchIsraeli(s.team);
+            if (club) { s.team = club.name; if (!s.league && ISRAEL_LEAGUES[club.league]) s.league = club.league; }
+          }
+          save();
+          renderStints();
+          toast({ il: 'הועבר לחלק של ישראל', other: 'הועבר ל״מחוץ לאירופה״', eu: 'הועבר לאירופה' }[now]);
+        };
         c.oninput = () => { s.country = c.value.trim(); save(); };
+        c.onchange = relocate;
         autocomplete(c, {
-          source: (q) => (kind === 'other' ? OTHER_COUNTRIES : COUNTRIES).filter((x) => x !== ISRAEL && normalize(x).includes(normalize(q))).map((x) => ({ name: x, meta: flag(x) })),
-          onSelect: (it) => { s.country = it.name; save(); },
+          source: (q) => [...(kind === 'other' ? OTHER_COUNTRIES : COUNTRIES), ISRAEL]
+            .filter((x, i, arr) => arr.indexOf(x) === i && normalize(x).includes(normalize(q)))
+            .map((x) => ({ name: x, meta: flag(x) })),
+          onSelect: (it) => { s.country = it.name; save(); relocate(); },
         });
       }
       row.querySelector('[data-remove]').onclick = () => {
